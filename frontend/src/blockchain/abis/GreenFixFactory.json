@@ -1,0 +1,20 @@
+[
+  {
+    "type": "function",
+    "name": "createProject",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "fundingGoal", "type": "uint256" },
+      { "name": "interestBps", "type": "uint256" },
+      { "name": "metadataURI", "type": "string" }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "getProjects",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "address[]" }]
+  }
+]
