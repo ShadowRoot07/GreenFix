@@ -118,7 +118,7 @@ export default function ProjectDetail() {
             <h3 className="mb-5 text-2xl font-bold text-white">Milestones</h3>
 
             <div className="space-y-4">
-              {project.milestones.map((milestone) => (
+              {(project.milestones || []).map((milestone) => (
                 <MilestoneRow key={milestone.id} milestone={milestone} />
               ))}
             </div>

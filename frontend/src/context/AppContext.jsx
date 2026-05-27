@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { connectMetaMask } from "../blockchain/web3Service";
-
+import { connectMetaMask, createProject as createProjectOnChain, invest as investOnChain } from "../blockchain/web3Service";
 const AppContext = createContext();
 
 const defaultInvestorProjects = [
@@ -236,37 +235,58 @@ export function AppProvider({ children }) {
     setAccount("");
   }
 
-  function createProject({ name, goal, description }) {
-    const interest = calculateInterest(goal);
+  async function createProject({ name, goal, description }) {
+  try {
+    // 1. Crear en blockchain (MetaMask pedirá confirmación)
+    const result = await createProjectOnChain(
+      goal,
+      600,              // 6% interés
+      30,               // 30 días
+      7 * 24 * 3600,    // intervalo 7 días
+      "ipfs://" + name  // metadata simple
+    );
 
+    // 2. Guardar en backend
+    await fetch("http://localhost:5029/api/proyectos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre: name,
+        descripcion: description,
+        montoObjetivo: Number(goal),
+        montoActual: 0,
+        interes: 6,
+        duracionMeses: 1,
+        garantia: Number(goal) * 0.05,
+        contractAddress: result.projectAddress || "0xPendiente",
+        estado: "Funding",
+        emprendedorId: 1
+      })
+    });
+
+    // 3. Agregar a la lista local
     const newProject = {
       id: `cre-${Date.now()}`,
       name,
       description,
       goal: Number(goal),
       raised: 0,
-      interest,
-      risk: "Medio",
+      interest: 6,
       status: "Funding",
-      creator: user?.name || "Negociador",
-      category: "Negocio local",
-      evidence: "ipfs://pendiente",
+      contractAddress: result.projectAddress,
+      milestones: [],
       image: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=900",
-      daysLeft: 30,
-      milestones: [
-        {
-          id: "m1",
-          title: "Milestone inicial",
-          description: "Primer avance del proyecto creado por el negociador.",
-          percentage: 30,
-          status: "Voting",
-        },
-      ],
     };
 
     setCreatorProjects((prev) => [...prev, newProject]);
     setActiveView("dashboard");
+    alert("✅ Proyecto creado en blockchain y guardado!");
+
+  } catch (error) {
+    console.error(error);
+    alert("❌ Error: " + error.message);
   }
+}
 
   function deleteCreatorProject(projectId) {
     setCreatorProjects((prev) => prev.filter((project) => project.id !== projectId));
@@ -274,30 +294,48 @@ export function AppProvider({ children }) {
     setActiveView("dashboard");
   }
 
-  function invest(projectId, amount) {
-    const value = Number(amount);
+async function invest(projectId, amount) {
+  console.log("Invirtiendo:", amount, "USDC");
+  const value = Number(amount);
+  if (!value || value <= 0) {
+    alert("Ingrese un monto válido");
+    return;
+  }
 
-    if (!value || value <= 0) {
-      alert("Ingrese un monto válido");
+  try {
+    const project = investorProjects.find(p => p.id === projectId) || 
+                    creatorProjects.find(p => p.id === projectId);
+    
+    if (!project || !project.contractAddress) {
+      alert("Proyecto no encontrado o sin contrato");
       return;
     }
 
+    // Invertir en blockchain
+    await investOnChain(project.contractAddress, amount);
+
+    // Actualizar lista de proyectos
     setInvestorProjects((prev) =>
-      prev.map((project) =>
-        project.id === projectId
-          ? { ...project, raised: Math.min(project.raised + value, project.goal) }
-          : project
+      prev.map((p) =>
+        p.id === projectId
+          ? { ...p, raised: (p.raised || 0) + value }
+          : p
       )
     );
 
+    // Actualizar proyecto seleccionado
     setSelectedProject((prev) =>
       prev && prev.id === projectId
-        ? { ...prev, raised: Math.min(prev.raised + value, prev.goal) }
+        ? { ...prev, raised: (prev.raised || 0) + value }
         : prev
     );
 
-    alert("Inversión simulada correctamente");
+    alert("✅ Inversión realizada!");
+  } catch (error) {
+    console.error(error);
+    alert("❌ Error: " + error.message);
   }
+}
 
   function openProject(project) {
     setSelectedProject(project);
@@ -318,8 +356,7 @@ export function AppProvider({ children }) {
     });
   }
 
-  const visibleProjects =
-    user?.activeRole === "creator" ? creatorProjects : investorProjects;
+  const visibleProjects = [...investorProjects, ...creatorProjects];
 
   return (
     <AppContext.Provider

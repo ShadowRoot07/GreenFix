@@ -104,4 +104,14 @@ public class ProyectosController : ControllerBase
             return StatusCode(500, new { mensaje = "Error al obtener el proyecto", detalle = ex.Message });
         }
     }
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Proyecto proyecto)
+    {
+        proyecto.FechaCreacion = DateTime.UtcNow;
+        proyecto.Estado = "Funding";
+        _context.Proyectos.Add(proyecto);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetProyecto), new { id = proyecto.Id }, proyecto);
+    }
 }
+
