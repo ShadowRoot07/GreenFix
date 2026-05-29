@@ -1,5 +1,6 @@
 import Navbar from "./components/Navbar";
 import AuthModal from "./components/AuthModal";
+import KycModal from "./components/KycModal";
 import Home from "./views/Home";
 import Dashboard from "./views/Dashboard";
 import ProjectDetail from "./views/ProjectDetail";
@@ -23,6 +24,7 @@ function App() {
       </div>
       <Navbar />
       <AuthModal />
+      <KycModal />
 
       {activeView === "home" && <Home />}
       {activeView === "dashboard" && <Dashboard />}

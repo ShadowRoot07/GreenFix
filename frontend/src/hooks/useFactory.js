@@ -1,11 +1,12 @@
 import { useApp } from "../context/AppContext";
 
 export function useFactory() {
-  const { creatorProjects, createProject, deleteCreatorProject } = useApp();
+  const { visibleProjects, createProject, projectsLoading, loadProjects } = useApp();
 
   return {
-    creatorProjects,
+    projects: visibleProjects,
     createProject,
-    deleteCreatorProject,
+    projectsLoading,
+    loadProjects,
   };
 }

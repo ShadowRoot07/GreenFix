@@ -6,8 +6,8 @@ import Card from "../components/ui/Card";
 import BadgeStatus from "../components/ui/BadgeStatus";
 
 export default function Home() {
-  const { investorProjects, openLogin, openProject } = useApp();
-  const featured = investorProjects.slice(0, 3);
+  const { projects, openLogin, openProject } = useApp();
+  const featured = projects.slice(0, 3);
 
   return (
     <main>
@@ -29,8 +29,8 @@ export default function Home() {
 
             <p className="mb-8 max-w-2xl text-lg leading-8 text-text-secondary">
               GreenFix conecta pequeños negocios con inversionistas mediante
-              milestones, votaciones, trazabilidad e integración preparada para
-              Polygon Amoy.
+              milestones, votaciones y trazabilidad, ejecutándose sobre una red
+              blockchain local de Hardhat.
             </p>
 
             <div className="flex flex-wrap gap-4">
@@ -104,7 +104,7 @@ export default function Home() {
         <div className="grid gap-6 md:grid-cols-4">
           {[
             ["1", "Crear proyecto", "El negociador publica su idea, monto y descripción."],
-            ["2", "Financiar", "El inversor aporta USDC de forma simulada."],
+            ["2", "Financiar", "El inversor aporta USDC real on-chain."],
             ["3", "Votar", "Los milestones se aprueban mediante votación."],
             ["4", "Reclamar", "El sistema queda preparado para rewards y refunds."],
           ].map(([num, title, text]) => (

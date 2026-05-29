@@ -10,6 +10,7 @@ contract GreenFixFactory is IGreenFixFactory {
         address creator;
         uint256 fundingGoal;
         uint256 createdAt;
+        string metadataURI;
     }
 
     address public usdc;
@@ -26,7 +27,8 @@ contract GreenFixFactory is IGreenFixFactory {
         uint256 indexed projectId,
         address indexed creator,
         address projectAddress,
-        uint256 fundingGoal
+        uint256 fundingGoal,
+        string metadataURI
     );
 
     constructor(
@@ -79,19 +81,21 @@ contract GreenFixFactory is IGreenFixFactory {
             projectAddress: address(project),
             creator: msg.sender,
             fundingGoal: fundingGoal,
-            createdAt: block.timestamp
+            createdAt: block.timestamp,
+            metadataURI: metadataURI
         });
 
-        emit ProjectCreated(projectId, msg.sender, address(project), fundingGoal);
+        emit ProjectCreated(projectId, msg.sender, address(project), fundingGoal, metadataURI);
     }
 
     function getProject(uint256 projectId) external view override returns (
         address projectAddress,
         address creator,
         uint256 fundingGoal,
-        uint256 createdAt
+        uint256 createdAt,
+        string memory metadataURI
     ) {
         ProjectInfo memory p = projects[projectId];
-        return (p.projectAddress, p.creator, p.fundingGoal, p.createdAt);
+        return (p.projectAddress, p.creator, p.fundingGoal, p.createdAt, p.metadataURI);
     }
 }

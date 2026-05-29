@@ -1,25 +1,28 @@
 import { motion } from "framer-motion";
-import { ArrowUpRight, Coins, LayoutGrid, PlusCircle, ShieldCheck, Users } from "lucide-react";
+import { ArrowUpRight, Coins, LayoutGrid, PlusCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import BadgeStatus from "../components/ui/BadgeStatus";
 
 export default function Dashboard() {
-  const { user, visibleProjects, openProject, setActiveView } = useApp();
+  const { user, visibleProjects, openProject, setActiveView, projectsLoading, loadProjects, startCreateProject } = useApp();
 
   const isCreator = user?.activeRole === "creator";
+
+  const totalGoal = visibleProjects.reduce((acc, p) => acc + (p.goal || 0), 0);
+  const totalRaised = visibleProjects.reduce((acc, p) => acc + (p.raised || 0), 0);
 
   const stats = isCreator
     ? [
         ["Mis proyectos", visibleProjects.length, PlusCircle],
-        ["Milestones", visibleProjects.length * 2, ShieldCheck],
-        ["Capital solicitado", `${visibleProjects.reduce((acc, p) => acc + p.goal, 0)} USDC`, Coins],
+        ["Capital solicitado", `${totalGoal} USDC`, Coins],
+        ["Recaudado", `${totalRaised} USDC`, ShieldCheck],
       ]
     : [
-        ["Proyectos activos", visibleProjects.length, LayoutGrid],
-        ["Inversión simulada", "350 USDC", Coins],
-        ["Rewards estimados", "21 USDC", ShieldCheck],
+        ["Proyectos disponibles", visibleProjects.length, LayoutGrid],
+        ["Capital en proyectos", `${totalGoal} USDC`, Coins],
+        ["Total recaudado", `${totalRaised} USDC`, ShieldCheck],
       ];
 
   return (
@@ -41,12 +44,18 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {isCreator && (
-          <Button onClick={() => setActiveView("create")}>
-            <PlusCircle size={18} />
-            Crear nuevo proyecto
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={loadProjects} disabled={projectsLoading}>
+            <RefreshCw size={18} className={projectsLoading ? "animate-spin" : ""} />
+            Actualizar
           </Button>
-        )}
+          {isCreator && (
+            <Button onClick={startCreateProject}>
+              <PlusCircle size={18} />
+              Crear nuevo proyecto
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="mb-10 grid gap-6 md:grid-cols-3">
@@ -83,7 +92,7 @@ export default function Dashboard() {
             Crea tu primer proyecto para que aparezca en este panel.
           </p>
           {isCreator && (
-            <Button className="mt-6" onClick={() => setActiveView("create")}>
+            <Button className="mt-6" onClick={startCreateProject}>
               Crear proyecto
             </Button>
           )}

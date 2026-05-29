@@ -108,10 +108,48 @@ public class ProyectosController : ControllerBase
     public async Task<IActionResult> Create([FromBody] Proyecto proyecto)
     {
         proyecto.FechaCreacion = DateTime.UtcNow;
-        proyecto.Estado = "Funding";
+        if (string.IsNullOrWhiteSpace(proyecto.Estado))
+            proyecto.Estado = "Funding";
         _context.Proyectos.Add(proyecto);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetProyecto), new { id = proyecto.Id }, proyecto);
+    }
+
+    /// <summary>
+    /// Actualiza el estado on-chain del proyecto (estado y monto recaudado).
+    /// Se usa para sincronizar la metadata del backend con la blockchain.
+    /// </summary>
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] Proyecto datos)
+    {
+        var proyecto = await _context.Proyectos.FindAsync(id);
+        if (proyecto == null)
+            return NotFound(new { mensaje = $"Proyecto con ID {id} no encontrado" });
+
+        if (!string.IsNullOrWhiteSpace(datos.Estado)) proyecto.Estado = datos.Estado;
+        if (datos.MontoActual > 0) proyecto.MontoActual = datos.MontoActual;
+        if (datos.Estado == "Completed") proyecto.FechaFinalizacion = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return Ok(proyecto);
+    }
+
+    /// <summary>
+    /// Sincroniza el estado leído de la blockchain por dirección de contrato.
+    /// </summary>
+    [HttpPut("contract/{contractAddress}/estado")]
+    public async Task<IActionResult> UpdateEstadoPorContract(string contractAddress, [FromBody] Proyecto datos)
+    {
+        var proyecto = await _context.Proyectos
+            .FirstOrDefaultAsync(p => p.ContractAddress == contractAddress);
+        if (proyecto == null)
+            return NotFound(new { mensaje = $"Proyecto con contrato {contractAddress} no encontrado" });
+
+        if (!string.IsNullOrWhiteSpace(datos.Estado)) proyecto.Estado = datos.Estado;
+        if (datos.MontoActual > 0) proyecto.MontoActual = datos.MontoActual;
+
+        await _context.SaveChangesAsync();
+        return Ok(proyecto);
     }
 }
 

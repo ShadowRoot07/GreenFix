@@ -11,6 +11,7 @@ export default function Navbar() {
     user,
     openLogin,
     logout,
+    startCreateProject,
   } = useApp();
 
   const isCreator = user?.activeRole === "creator";
@@ -57,7 +58,7 @@ export default function Navbar() {
 
         {user && isCreator && (
           <button
-            onClick={() => setActiveView("create")}
+            onClick={startCreateProject}
             className={`transition-all duration-300 hover:-translate-y-1 ${
               activeView === "create"
                 ? "font-bold text-primary"

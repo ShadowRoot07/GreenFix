@@ -10,6 +10,7 @@ public class Proyecto
     public decimal Interes { get; set; }           // ← NUEVO
     public int DuracionMeses { get; set; }         // ← NUEVO
     public decimal Garantia { get; set; }          // ← NUEVO
+    public string? ImagenURL { get; set; }          // ← URL de imagen personalizada
     public string ContractAddress { get; set; } = string.Empty;
     public string Estado { get; set; } = "Funding";
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;

@@ -1,12 +1,27 @@
 import { useApp } from "../context/AppContext";
 
 export function useProject() {
-  const { selectedProject, invest, vote, votes } = useApp();
+  const {
+    selectedProject,
+    invest,
+    vote,
+    finalizeFunding,
+    requestMilestone,
+    finalizeVoting,
+    makeRepayment,
+    claimRewards,
+    claimRefund,
+  } = useApp();
 
   return {
     project: selectedProject,
     invest,
     vote,
-    votes,
+    finalizeFunding,
+    requestMilestone,
+    finalizeVoting,
+    makeRepayment,
+    claimRewards,
+    claimRefund,
   };
 }

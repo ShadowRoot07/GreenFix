@@ -1,106 +1,37 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { connectMetaMask, createProject as createProjectOnChain, invest as investOnChain } from "../blockchain/web3Service";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import {
+  connectMetaMask,
+  getUsdcBalance,
+  mintUsdc,
+  getAllProjects,
+  createProject as createProjectOnChain,
+  invest as investOnChain,
+  vote as voteOnChain,
+  finalizeFunding as finalizeFundingOnChain,
+  requestMilestoneRelease as requestMilestoneReleaseOnChain,
+  finalizeVoting as finalizeVotingOnChain,
+  makeRepayment as makeRepaymentOnChain,
+  claimRewards as claimRewardsOnChain,
+  claimRefund as claimRefundOnChain,
+} from "../blockchain/web3Service";
+
 const AppContext = createContext();
 
-const defaultInvestorProjects = [
-  {
-    id: "inv-1",
-    name: "Eco Café Santa Cruz",
-    description: "Expansión de cafetería saludable con productos orgánicos y empaques sostenibles.",
-    goal: 1000,
-    raised: 650,
-    interest: 6,
-    risk: "Medio",
-    status: "Funding",
-    creator: "Eco Café",
-    category: "Alimentos",
-    evidence: "ipfs://evidencia-eco-cafe",
-    image: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?auto=format&fit=crop&q=80&w=900",
-    daysLeft: 16,
-    milestones: [
-      {
-        id: "m1",
-        title: "Compra de insumos",
-        description: "Adquisición de materia prima, empaques y equipamiento inicial.",
-        percentage: 30,
-        status: "Voting",
-      },
-      {
-        id: "m2",
-        title: "Ampliación del local",
-        description: "Adecuación del espacio y compra de mobiliario.",
-        percentage: 30,
-        status: "Funding",
-      },
-    ],
-  },
-  {
-    id: "inv-2",
-    name: "Huerto Urbano Verde",
-    description: "Producción local de verduras para restaurantes saludables de Santa Cruz.",
-    goal: 2500,
-    raised: 1000,
-    interest: 8,
-    risk: "Bajo",
-    status: "Funding",
-    creator: "Huerto Urbano",
-    category: "Agricultura",
-    evidence: "ipfs://evidencia-huerto",
-    image: "https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&q=80&w=900",
-    daysLeft: 22,
-    milestones: [
-      {
-        id: "m1",
-        title: "Sistema de riego",
-        description: "Instalación de riego y preparación del terreno.",
-        percentage: 30,
-        status: "Voting",
-      },
-    ],
-  },
-  {
-    id: "inv-3",
-    name: "Delivery Sustentable",
-    description: "Servicio de entrega ecológica para pequeños negocios locales.",
-    goal: 1800,
-    raised: 1440,
-    interest: 7,
-    risk: "Medio",
-    status: "Active",
-    creator: "Green Delivery",
-    category: "Logística",
-    evidence: "ipfs://evidencia-delivery",
-    image: "https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&q=80&w=900",
-    daysLeft: 8,
-    milestones: [
-      {
-        id: "m1",
-        title: "Compra de bicicletas",
-        description: "Compra de bicicletas eléctricas y equipamiento de reparto.",
-        percentage: 30,
-        status: "Voting",
-      },
-    ],
-  },
+const BACKEND_URL = "http://localhost:5029";
+
+// Imágenes de relleno para que las tarjetas se vean bien (la metadata real
+// vive en el backend / IPFS; esto es solo presentación).
+const FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1442512595331-e89e73853f31?auto=format&fit=crop&q=80&w=900",
+  "https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&q=80&w=900",
+  "https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&q=80&w=900",
+  "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=900",
 ];
 
+// Usuarios demo (no hay backend de auth en el MVP: el login solo elige el rol).
 const users = [
-  {
-    id: 1,
-    name: "Maycol",
-    email: "inversor@gmail.com",
-    password: "12345",
-    walletAddress: "",
-    roles: ["investor"],
-  },
-  {
-    id: 2,
-    name: "Negociador GreenFix",
-    email: "negociador@gmail.com",
-    password: "12345",
-    walletAddress: "",
-    roles: ["creator"],
-  },
+  { id: 1, name: "Maycol", email: "inversor@gmail.com", password: "12345", roles: ["investor"] },
+  { id: 2, name: "Negociador GreenFix", email: "negociador@gmail.com", password: "12345", roles: ["creator"] },
 ];
 
 function getSaved(key, fallback) {
@@ -108,124 +39,197 @@ function getSaved(key, fallback) {
   return saved ? JSON.parse(saved) : fallback;
 }
 
-function calculateInterest(goal) {
+function calculateInterestBps(goal) {
   const amount = Number(goal);
+  if (amount <= 1000) return 600; // 6%
+  if (amount <= 2500) return 800; // 8%
+  return 1000; // 10%
+}
 
-  if (amount <= 1000) return 6;
-  if (amount <= 2500) return 8;
-  return 10;
+function milestoneStatus(milestone, index, currentMilestone) {
+  if (milestone.released || index < currentMilestone) return "Completed";
+  if (milestone.votingActive) return "Voting";
+  if (index === currentMilestone) return "Pending";
+  return "Locked";
+}
+
+/**
+ * Convierte el resumen on-chain en el modelo que consumen las vistas,
+ * enriquecido con la metadata del backend cuando está disponible.
+ */
+function buildProjectModel(chainProject, metadataByAddress, index) {
+  const meta = metadataByAddress[chainProject.contractAddress.toLowerCase()] || {};
+  const nameFromUri = (chainProject.metadataURI || "").replace("ipfs://", "");
+  // Imagen personalizada del negociador; solo se usa un fallback si no hay ninguna.
+  const customImage = meta.imagenURL || meta.imagenUrl;
+
+  return {
+    id: chainProject.contractAddress,
+    projectId: chainProject.projectId,
+    contractAddress: chainProject.contractAddress,
+    creator: chainProject.creator,
+    name: meta.nombre || nameFromUri || `Proyecto #${chainProject.projectId}`,
+    description: meta.descripcion || "Proyecto de financiamiento descentralizado en GreenFix.",
+    image: customImage || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length],
+    goal: chainProject.goal,
+    raised: chainProject.raised,
+    interest: chainProject.interest,
+    status: chainProject.status,
+    state: chainProject.state,
+    guaranteeDeposited: chainProject.guaranteeDeposited,
+    currentMilestone: chainProject.currentMilestone,
+    tokenTotalSupply: chainProject.tokenTotalSupply,
+    repayments: chainProject.repayments,
+    milestones: chainProject.milestones.map((m, i) => ({
+      id: m.id,
+      title: `Hito ${i + 1}`,
+      description: `Liberación del ${m.percentage}% del capital (${m.amount} USDC).`,
+      percentage: m.percentage,
+      status: milestoneStatus(m, i, chainProject.currentMilestone),
+      released: m.released,
+      votingActive: m.votingActive,
+      votesFor: m.votesFor,
+      votesAgainst: m.votesAgainst,
+      evidenceURI: m.evidenceURI,
+    })),
+  };
 }
 
 export function AppProvider({ children }) {
   const [account, setAccount] = useState(() => getSaved("greenfix-account", ""));
+  const [usdcBalance, setUsdcBalance] = useState(0);
   const [walletLoading, setWalletLoading] = useState(false);
+  const [txPending, setTxPending] = useState(false);
+
   const [user, setUser] = useState(() => getSaved("greenfix-user", null));
   const [authError, setAuthError] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
 
-  const [activeView, setActiveView] = useState(() =>
-    getSaved("greenfix-active-view", "home")
-  );
+  const [activeView, setActiveView] = useState(() => getSaved("greenfix-active-view", "home"));
+  const [selectedId, setSelectedId] = useState(() => getSaved("greenfix-selected-id", null));
 
-  const [selectedProject, setSelectedProject] = useState(() =>
-    getSaved("greenfix-selected-project", null)
-  );
+  // KYC (simulado, local). Mapa { [usuarioId]: true }.
+  const [kycMap, setKycMap] = useState(() => getSaved("greenfix-kyc", {}));
+  const [kycModalOpen, setKycModalOpen] = useState(false);
 
-  const [investorProjects, setInvestorProjects] = useState(() =>
-    getSaved("greenfix-investor-projects", defaultInvestorProjects)
-  );
+  const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
 
-  const [creatorProjects, setCreatorProjects] = useState(() =>
-    getSaved("greenfix-creator-projects", [])
-  );
+  // ─────────────── Persistencia ligera de sesión / navegación ───────────────
+  useEffect(() => { localStorage.setItem("greenfix-user", JSON.stringify(user)); }, [user]);
+  useEffect(() => { localStorage.setItem("greenfix-account", JSON.stringify(account)); }, [account]);
+  useEffect(() => { localStorage.setItem("greenfix-active-view", JSON.stringify(activeView)); }, [activeView]);
+  useEffect(() => { localStorage.setItem("greenfix-selected-id", JSON.stringify(selectedId)); }, [selectedId]);
+  useEffect(() => { localStorage.setItem("greenfix-kyc", JSON.stringify(kycMap)); }, [kycMap]);
 
-  const [votes, setVotes] = useState(() => getSaved("greenfix-votes", {}));
+  // ─────────────── Carga de proyectos desde la cadena ───────────────
+  const loadProjects = useCallback(async () => {
+    setProjectsLoading(true);
+    try {
+      const chainProjects = await getAllProjects();
+
+      // Metadata del backend (opcional, tolerante a que esté caído).
+      let metadataByAddress = {};
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/proyectos`);
+        if (res.ok) {
+          const data = await res.json();
+          metadataByAddress = data.reduce((acc, p) => {
+            if (p.contractAddress) acc[p.contractAddress.toLowerCase()] = p;
+            return acc;
+          }, {});
+        }
+      } catch {
+        /* backend no disponible: seguimos solo con datos on-chain */
+      }
+
+      setProjects(chainProjects.map((p, i) => buildProjectModel(p, metadataByAddress, i)));
+    } catch (error) {
+      console.error("Error cargando proyectos on-chain:", error);
+      setProjects([]);
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem("greenfix-user", JSON.stringify(user));
-  }, [user]);
+    loadProjects();
+  }, [loadProjects]);
+
+  // Refrescar saldo USDC cuando cambia la cuenta.
+  const refreshBalance = useCallback(async (address) => {
+    try {
+      setUsdcBalance(await getUsdcBalance(address));
+    } catch {
+      setUsdcBalance(0);
+    }
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem("greenfix-account", JSON.stringify(account));
-  }, [account]);
+    if (account) refreshBalance(account);
+  }, [account, refreshBalance]);
 
+  // Reaccionar a cambios de cuenta en MetaMask.
   useEffect(() => {
-    localStorage.setItem("greenfix-active-view", JSON.stringify(activeView));
-  }, [activeView]);
+    if (!window.ethereum) return;
+    const handler = (accounts) => setAccount(accounts[0] || "");
+    window.ethereum.on?.("accountsChanged", handler);
+    return () => window.ethereum.removeListener?.("accountsChanged", handler);
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem("greenfix-selected-project", JSON.stringify(selectedProject));
-  }, [selectedProject]);
-
-  useEffect(() => {
-    localStorage.setItem("greenfix-investor-projects", JSON.stringify(investorProjects));
-  }, [investorProjects]);
-
-  useEffect(() => {
-    localStorage.setItem("greenfix-creator-projects", JSON.stringify(creatorProjects));
-  }, [creatorProjects]);
-
-  useEffect(() => {
-    localStorage.setItem("greenfix-votes", JSON.stringify(votes));
-  }, [votes]);
-
-  function openLogin() {
-    setAuthError("");
-    setLoginOpen(true);
-  }
-
-  function closeLogin() {
-    setLoginOpen(false);
-  }
+  // ─────────────── Auth (demo local) ───────────────
+  function openLogin() { setAuthError(""); setLoginOpen(true); }
+  function closeLogin() { setLoginOpen(false); }
 
   function login(email, password, selectedRole) {
     setAuthError("");
-
-    const foundUser = users.find(
-      (item) =>
-        item.email === email &&
-        item.password === password &&
-        item.roles.includes(selectedRole)
+    const found = users.find(
+      (u) => u.email === email && u.password === password && u.roles.includes(selectedRole)
     );
-
-    if (!foundUser) {
+    if (!found) {
       setAuthError("Correo, contraseña o rol incorrecto");
       return false;
     }
-
-    const session = {
-      id: foundUser.id,
-      name: foundUser.name,
-      email: foundUser.email,
-      roles: foundUser.roles,
-      walletAddress: foundUser.walletAddress,
-      activeRole: selectedRole,
-    };
-
-    setUser(session);
+    setUser({ id: found.id, name: found.name, email: found.email, roles: found.roles, activeRole: selectedRole });
     setActiveView("dashboard");
     setLoginOpen(false);
-
     return true;
   }
 
   function logout() {
     setUser(null);
     setActiveView("home");
-    setSelectedProject(null);
-    localStorage.removeItem("greenfix-user");
-    localStorage.removeItem("greenfix-active-view");
-    localStorage.removeItem("greenfix-selected-project");
+    setSelectedId(null);
   }
 
+  // ─────────────── KYC (simulado / local) ───────────────
+  const kycVerified = user ? Boolean(kycMap[user.id]) : false;
+
+  function openKycModal() { setKycModalOpen(true); }
+  function closeKycModal() { setKycModalOpen(false); }
+
+  function approveKyc() {
+    if (user) setKycMap((prev) => ({ ...prev, [user.id]: true }));
+    setKycModalOpen(false);
+  }
+
+  // Lanza la creación solo si el negociador pasó el KYC; si no, abre el modal.
+  function startCreateProject() {
+    if (!kycVerified) {
+      setKycModalOpen(true);
+      return;
+    }
+    setActiveView("create");
+  }
+
+  // ─────────────── Wallet ───────────────
   async function connectWallet() {
     setWalletLoading(true);
-
     try {
       const wallet = await connectMetaMask();
       setAccount(wallet);
-    } catch {
-      setAccount("0x1234...ABCD");
+    } catch (error) {
+      alert("❌ No se pudo conectar la wallet: " + error.message);
     } finally {
       setWalletLoading(false);
     }
@@ -233,177 +237,188 @@ export function AppProvider({ children }) {
 
   function disconnectWallet() {
     setAccount("");
+    setUsdcBalance(0);
   }
 
-  async function createProject({ name, goal, description }) {
-  try {
-    // 1. Crear en blockchain (MetaMask pedirá confirmación)
-    const result = await createProjectOnChain(
-      goal,
-      600,              // 6% interés
-      30,               // 30 días
-      7 * 24 * 3600,    // intervalo 7 días
-      "ipfs://" + name  // metadata simple
-    );
-
-    // 2. Guardar en backend
-    await fetch("http://localhost:5029/api/proyectos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nombre: name,
-        descripcion: description,
-        montoObjetivo: Number(goal),
-        montoActual: 0,
-        interes: 6,
-        duracionMeses: 1,
-        garantia: Number(goal) * 0.05,
-        contractAddress: result.projectAddress || "0xPendiente",
-        estado: "Funding",
-        emprendedorId: 1
-      })
-    });
-
-    // 3. Agregar a la lista local
-    const newProject = {
-      id: `cre-${Date.now()}`,
-      name,
-      description,
-      goal: Number(goal),
-      raised: 0,
-      interest: 6,
-      status: "Funding",
-      contractAddress: result.projectAddress,
-      milestones: [],
-      image: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=900",
-    };
-
-    setCreatorProjects((prev) => [...prev, newProject]);
-    setActiveView("dashboard");
-    alert("✅ Proyecto creado en blockchain y guardado!");
-
-  } catch (error) {
-    console.error(error);
-    alert("❌ Error: " + error.message);
-  }
-}
-
-  function deleteCreatorProject(projectId) {
-    setCreatorProjects((prev) => prev.filter((project) => project.id !== projectId));
-    setSelectedProject(null);
-    setActiveView("dashboard");
+  async function requestFaucet(amount = 5000) {
+    if (!account) return alert("Conecta tu wallet primero");
+    setTxPending(true);
+    try {
+      await mintUsdc(amount);
+      await refreshBalance(account);
+      alert(`✅ Recibiste ${amount} USDC de prueba`);
+    } catch (error) {
+      alert("❌ Faucet falló: " + (error.shortMessage || error.message));
+    } finally {
+      setTxPending(false);
+    }
   }
 
-async function invest(projectId, amount) {
-  console.log("Invirtiendo:", amount, "USDC");
-  const value = Number(amount);
-  if (!value || value <= 0) {
-    alert("Ingrese un monto válido");
-    return;
+  // ─────────────── Acciones on-chain ───────────────
+  async function runTx(fn, successMsg) {
+    if (!account) {
+      alert("Conecta tu wallet primero");
+      return false;
+    }
+    setTxPending(true);
+    try {
+      await fn();
+      await loadProjects();
+      if (account) await refreshBalance(account);
+      if (successMsg) alert(successMsg);
+      return true;
+    } catch (error) {
+      console.error(error);
+      alert("❌ Error: " + (error.shortMessage || error.reason || error.message));
+      return false;
+    } finally {
+      setTxPending(false);
+    }
   }
 
-  try {
-    const project = investorProjects.find(p => p.id === projectId) || 
-                    creatorProjects.find(p => p.id === projectId);
-    
-    if (!project || !project.contractAddress) {
-      alert("Proyecto no encontrado o sin contrato");
+  async function createProject({ name, goal, description, durationDays, imageUrl }) {
+    if (!account) {
+      alert("Conecta tu wallet primero");
       return;
     }
-
-    // Invertir en blockchain
-    await investOnChain(project.contractAddress, amount);
-    const updatedProjects = investorProjects.map((p) =>
-      p.id === projectId
-        ? { ...p, raised: (p.raised || 0) + value }
-        : p
-    );
-
-    // Actualizar lista de proyectos
-    setInvestorProjects((prev) =>
-      prev.map((p) =>
-        p.id === projectId
-          ? { ...p, raised: (p.raised || 0) + value }
-          : p
-      )
-    );
-
-    // Actualizar proyecto seleccionado
-    setSelectedProject((prev) =>
-      prev && prev.id === projectId
-        ? { ...prev, raised: (prev.raised || 0) + value }
-        : prev
-    );
-
-    try {
-      await fetch("http://localhost:5029/api/inversiones", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          proyectoID: 1,
-          usuarioID: 1,
-          montoInvertido: value,
-          tokensAsignados: value
-        })
-      });
-    } catch (e) {
-      console.log("Backend no disponible, pero inversión OK");
+    if (!kycVerified) {
+      setKycModalOpen(true);
+      return;
     }
+    setTxPending(true);
+    try {
+      const interestBps = calculateInterestBps(goal);
+      // Duración elegida por el negociador (entre 1 semana y 6 meses).
+      const days = Math.min(Math.max(Number(durationDays) || 30, 7), 180);
+      // Cuotas: semanales para plazos cortos, mensuales para plazos largos.
+      const repaymentInterval = days <= 30 ? 7 * 24 * 3600 : 30 * 24 * 3600;
 
-    alert("✅ Inversión realizada!");
-  } catch (error) {
-    console.error(error);
-    alert("❌ Error: " + error.message);
+      const result = await createProjectOnChain(
+        goal,
+        interestBps,
+        days,
+        repaymentInterval,
+        `ipfs://${name}`
+      );
+
+      // Guardar metadata en el backend (tolerante a fallos).
+      try {
+        await fetch(`${BACKEND_URL}/api/proyectos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: name,
+            descripcion: description,
+            montoObjetivo: Number(goal),
+            montoActual: 0,
+            interes: interestBps / 100,
+            duracionMeses: Math.max(1, Math.round(days / 30)),
+            garantia: Number(goal) * 0.05,
+            imagenURL: imageUrl || null,
+            contractAddress: result.projectAddress,
+            estado: "Funding",
+            emprendedorId: user?.id ?? 1,
+          }),
+        });
+      } catch {
+        /* backend opcional */
+      }
+
+      await loadProjects();
+      await refreshBalance(account);
+      setActiveView("dashboard");
+      alert("✅ Proyecto creado on-chain y garantía depositada");
+    } catch (error) {
+      console.error(error);
+      alert("❌ Error: " + (error.shortMessage || error.reason || error.message));
+    } finally {
+      setTxPending(false);
+    }
   }
-}
 
+  const invest = (contractAddress, amount) => {
+    const value = Number(amount);
+    if (!value || value <= 0) return alert("Ingrese un monto válido");
+    return runTx(() => investOnChain(contractAddress, value), "✅ Inversión realizada");
+  };
+
+  const vote = (contractAddress, milestoneId, support) =>
+    runTx(() => voteOnChain(contractAddress, milestoneId, support),
+      support ? "✅ Voto a favor registrado" : "✅ Voto en contra registrado");
+
+  const finalizeFunding = (contractAddress) =>
+    runTx(() => finalizeFundingOnChain(contractAddress), "✅ Funding finalizado, proyecto activo");
+
+  const requestMilestone = (contractAddress, evidenceURI) =>
+    runTx(() => requestMilestoneReleaseOnChain(contractAddress, evidenceURI), "✅ Votación de milestone iniciada");
+
+  const finalizeVoting = (contractAddress, milestoneId) =>
+    runTx(() => finalizeVotingOnChain(contractAddress, milestoneId), "✅ Votación finalizada");
+
+  const makeRepayment = (contractAddress, index) =>
+    runTx(() => makeRepaymentOnChain(contractAddress, index), "✅ Cuota pagada");
+
+  const claimRewards = (contractAddress) =>
+    runTx(() => claimRewardsOnChain(contractAddress), "✅ Recompensas reclamadas");
+
+  const claimRefund = (contractAddress) =>
+    runTx(() => claimRefundOnChain(contractAddress), "✅ Reembolso reclamado");
+
+  // ─────────────── Navegación de proyectos ───────────────
   function openProject(project) {
-    setSelectedProject(project);
+    setSelectedId(project.contractAddress);
     setActiveView("detail");
   }
 
-  function vote(projectId, support) {
-    setVotes((prev) => {
-      const current = prev[projectId] || { for: 12, against: 4 };
+  // El proyecto seleccionado se deriva de la lista (siempre fresco).
+  const selectedProject = projects.find((p) => p.contractAddress === selectedId) || null;
 
-      return {
-        ...prev,
-        [projectId]: {
-          for: support ? current.for + 1 : current.for,
-          against: support ? current.against : current.against + 1,
-        },
-      };
-    });
-  }
-
-  const visibleProjects = [...investorProjects, ...creatorProjects];
+  // Filtrado por rol.
+  const isCreator = user?.activeRole === "creator";
+  const visibleProjects = isCreator
+    ? projects.filter((p) => account && p.creator?.toLowerCase() === account.toLowerCase())
+    : projects;
 
   return (
     <AppContext.Provider
       value={{
         account,
+        usdcBalance,
         walletLoading,
+        txPending,
         user,
         authError,
         loginOpen,
         activeView,
-        selectedProject,
-        investorProjects,
-        creatorProjects,
+        projects,
+        projectsLoading,
         visibleProjects,
-        votes,
+        selectedProject,
+        kycVerified,
+        kycModalOpen,
         setActiveView,
         openLogin,
         closeLogin,
         login,
         logout,
+        openKycModal,
+        closeKycModal,
+        approveKyc,
+        startCreateProject,
         connectWallet,
         disconnectWallet,
+        requestFaucet,
+        loadProjects,
         createProject,
-        deleteCreatorProject,
         invest,
-        openProject,
         vote,
+        finalizeFunding,
+        requestMilestone,
+        finalizeVoting,
+        makeRepayment,
+        claimRewards,
+        claimRefund,
+        openProject,
       }}
     >
       {children}

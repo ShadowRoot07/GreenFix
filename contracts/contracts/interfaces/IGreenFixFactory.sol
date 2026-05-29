@@ -14,6 +14,7 @@ interface IGreenFixFactory {
         address projectAddress,
         address creator,
         uint256 fundingGoal,
-        uint256 createdAt
+        uint256 createdAt,
+        string memory metadataURI
     );
 }

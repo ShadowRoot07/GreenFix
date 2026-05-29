@@ -353,19 +353,14 @@ contract GreenFixProject is ReentrancyGuard, Pausable {
         // Liberar fondos al creador
         usdc.safeTransfer(creator, milestone.amount);
         totalReleased += milestone.amount;
-        
-        // Avanzar al siguiente milestone
+
+        // Avanzar al siguiente milestone.
+        // El proyecto NO se completa aquí: la finalización ocurre cuando el
+        // creador termina de pagar la deuda (ver makeRepayment). Tras liberar
+        // un milestone siempre volvemos a Active.
         currentMilestone++;
-        if (currentMilestone >= milestones.length) {
-        state = ProjectState.Completed;
-        emit ProjectCompleted();
-    }else {
         state = ProjectState.Active;
-    }
-        
-        // Volver a Active
-        state = ProjectState.Active;
-        
+
         emit MilestoneApproved(milestoneId);
         emit FundsReleased(milestoneId, milestone.amount);
     } else {
