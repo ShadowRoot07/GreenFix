@@ -39,8 +39,8 @@ export async function createProject(fundingGoal, interestBps, durationDays, repa
   const usdc = await getUSDCContract();
   const signer = await getSigner();
   
-  const guarantee = ethers.parseUnits(String(Number(fundingGoal) * 0.05), 6);
-  
+  const guaranteeAmount = Math.round(Number(fundingGoal) * 0.05 * 1e6) / 1e6;
+  const guarantee = ethers.parseUnits(guaranteeAmount.toFixed(6), 6);
   // 1. Aprobar USDC para la garantía
   const tx1 = await usdc.approve(CONTRACTS.FACTORY_ADDRESS, guarantee);
   await tx1.wait();
@@ -54,12 +54,29 @@ export async function createProject(fundingGoal, interestBps, durationDays, repa
     metadataURI
   );
   const receipt = await tx2.wait();
+  console.log("Todos los logs:", receipt.logs.map(l => ({
+  address: l.address,
+  topics: l.topics,
+  data: l.data
+})));
   
   // Obtener dirección del proyecto
-  const event = receipt.logs.find(log => {
-    try { return factory.interface.parseLog(log); } catch { return null; }
-  });
-  const projectAddress = event?.args?.projectAddress;
+  let projectAddress = null;
+for (const log of receipt.logs) {
+  try {
+    const parsed = factory.interface.parseLog(log);
+    if (parsed && parsed.name === "ProjectCreated") {
+      projectAddress = parsed.args[2]; // 3er argumento es projectAddress
+      break;
+    }
+  } catch (e) {
+    // ignorar logs que no son del factory
+  }
+}
+
+if (!projectAddress) {
+  throw new Error("No se pudo obtener la dirección del proyecto");
+}
   
   // 3. Depositar garantía
   const project = new ethers.Contract(projectAddress, GreenFixProjectABI.abi, signer);

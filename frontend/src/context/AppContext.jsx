@@ -313,6 +313,11 @@ async function invest(projectId, amount) {
 
     // Invertir en blockchain
     await investOnChain(project.contractAddress, amount);
+    const updatedProjects = investorProjects.map((p) =>
+      p.id === projectId
+        ? { ...p, raised: (p.raised || 0) + value }
+        : p
+    );
 
     // Actualizar lista de proyectos
     setInvestorProjects((prev) =>
@@ -329,6 +334,21 @@ async function invest(projectId, amount) {
         ? { ...prev, raised: (prev.raised || 0) + value }
         : prev
     );
+
+    try {
+      await fetch("http://localhost:5029/api/inversiones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proyectoID: 1,
+          usuarioID: 1,
+          montoInvertido: value,
+          tokensAsignados: value
+        })
+      });
+    } catch (e) {
+      console.log("Backend no disponible, pero inversión OK");
+    }
 
     alert("✅ Inversión realizada!");
   } catch (error) {
