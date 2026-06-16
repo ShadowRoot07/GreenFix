@@ -19,8 +19,6 @@ const AppContext = createContext();
 
 const BACKEND_URL = "http://localhost:5029";
 
-// Imágenes de relleno para que las tarjetas se vean bien (la metadata real
-// vive en el backend / IPFS; esto es solo presentación).
 const FALLBACK_IMAGES = [
   "https://images.unsplash.com/photo-1442512595331-e89e73853f31?auto=format&fit=crop&q=80&w=900",
   "https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&q=80&w=900",
@@ -28,7 +26,6 @@ const FALLBACK_IMAGES = [
   "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=900",
 ];
 
-// Usuarios demo (no hay backend de auth en el MVP: el login solo elige el rol).
 const users = [
   { id: 1, name: "Maycol", email: "inversor@gmail.com", password: "12345", roles: ["investor"] },
   { id: 2, name: "Negociador GreenFix", email: "negociador@gmail.com", password: "12345", roles: ["creator"] },
@@ -41,9 +38,9 @@ function getSaved(key, fallback) {
 
 function calculateInterestBps(goal) {
   const amount = Number(goal);
-  if (amount <= 1000) return 600; // 6%
-  if (amount <= 2500) return 800; // 8%
-  return 1000; // 10%
+  if (amount <= 1000) return 600; 
+  if (amount <= 2500) return 800; 
+  return 1000; 
 }
 
 function milestoneStatus(milestone, index, currentMilestone) {
@@ -53,14 +50,9 @@ function milestoneStatus(milestone, index, currentMilestone) {
   return "Locked";
 }
 
-/**
- * Convierte el resumen on-chain en el modelo que consumen las vistas,
- * enriquecido con la metadata del backend cuando está disponible.
- */
 function buildProjectModel(chainProject, metadataByAddress, index) {
   const meta = metadataByAddress[chainProject.contractAddress.toLowerCase()] || {};
   const nameFromUri = (chainProject.metadataURI || "").replace("ipfs://", "");
-  // Imagen personalizada del negociador; solo se usa un fallback si no hay ninguna.
   const customImage = meta.imagenURL || meta.imagenUrl;
 
   return {
@@ -108,27 +100,23 @@ export function AppProvider({ children }) {
   const [activeView, setActiveView] = useState(() => getSaved("greenfix-active-view", "home"));
   const [selectedId, setSelectedId] = useState(() => getSaved("greenfix-selected-id", null));
 
-  // KYC (simulado, local). Mapa { [usuarioId]: true }.
   const [kycMap, setKycMap] = useState(() => getSaved("greenfix-kyc", {}));
   const [kycModalOpen, setKycModalOpen] = useState(false);
 
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
 
-  // ─────────────── Persistencia ligera de sesión / navegación ───────────────
   useEffect(() => { localStorage.setItem("greenfix-user", JSON.stringify(user)); }, [user]);
   useEffect(() => { localStorage.setItem("greenfix-account", JSON.stringify(account)); }, [account]);
   useEffect(() => { localStorage.setItem("greenfix-active-view", JSON.stringify(activeView)); }, [activeView]);
   useEffect(() => { localStorage.setItem("greenfix-selected-id", JSON.stringify(selectedId)); }, [selectedId]);
   useEffect(() => { localStorage.setItem("greenfix-kyc", JSON.stringify(kycMap)); }, [kycMap]);
 
-  // ─────────────── Carga de proyectos desde la cadena ───────────────
   const loadProjects = useCallback(async () => {
     setProjectsLoading(true);
     try {
       const chainProjects = await getAllProjects();
 
-      // Metadata del backend (opcional, tolerante a que esté caído).
       let metadataByAddress = {};
       try {
         const res = await fetch(`${BACKEND_URL}/api/proyectos`);
@@ -140,7 +128,7 @@ export function AppProvider({ children }) {
           }, {});
         }
       } catch {
-        /* backend no disponible: seguimos solo con datos on-chain */
+        console.warn("⚠️ Backend no disponible. Corriendo solo en modo On-Chain.");
       }
 
       setProjects(chainProjects.map((p, i) => buildProjectModel(p, metadataByAddress, i)));
@@ -156,7 +144,6 @@ export function AppProvider({ children }) {
     loadProjects();
   }, [loadProjects]);
 
-  // Refrescar saldo USDC cuando cambia la cuenta.
   const refreshBalance = useCallback(async (address) => {
     try {
       setUsdcBalance(await getUsdcBalance(address));
@@ -169,7 +156,6 @@ export function AppProvider({ children }) {
     if (account) refreshBalance(account);
   }, [account, refreshBalance]);
 
-  // Reaccionar a cambios de cuenta en MetaMask.
   useEffect(() => {
     if (!window.ethereum) return;
     const handler = (accounts) => setAccount(accounts[0] || "");
@@ -177,7 +163,24 @@ export function AppProvider({ children }) {
     return () => window.ethereum.removeListener?.("accountsChanged", handler);
   }, []);
 
-  // ─────────────── Auth (demo local) ───────────────
+  // ─────────────── Helper de Sincronización Backend ───────────────
+  /**
+   * Envía parches parciales al controlador de C# para no perder consistencia Web2/Web3.
+   */
+  const syncProjectToBackend = async (contractAddress, payload) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/proyectos/contract/${contractAddress.toLowerCase()}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) console.warn(`[Sync Warning] Backend devolvió status ${res.status}`);
+    } catch (err) {
+      console.error("[Sync Error] No se pudo comunicar con el backend:", err.message);
+    }
+  };
+
+  // ─────────────── Auth ───────────────
   function openLogin() { setAuthError(""); setLoginOpen(true); }
   function closeLogin() { setLoginOpen(false); }
 
@@ -202,7 +205,7 @@ export function AppProvider({ children }) {
     setSelectedId(null);
   }
 
-  // ─────────────── KYC (simulado / local) ───────────────
+  // ─────────────── KYC ───────────────
   const kycVerified = user ? Boolean(kycMap[user.id]) : false;
 
   function openKycModal() { setKycModalOpen(true); }
@@ -213,7 +216,6 @@ export function AppProvider({ children }) {
     setKycModalOpen(false);
   }
 
-  // Lanza la creación solo si el negociador pasó el KYC; si no, abre el modal.
   function startCreateProject() {
     if (!kycVerified) {
       setKycModalOpen(true);
@@ -254,8 +256,8 @@ export function AppProvider({ children }) {
     }
   }
 
-  // ─────────────── Acciones on-chain ───────────────
-  async function runTx(fn, successMsg) {
+  // ─────────────── Pipeline de Ejecución Unificado ───────────────
+  async function runTx(fn, successMsg, syncPayload = null, targetAddress = null) {
     if (!account) {
       alert("Conecta tu wallet primero");
       return false;
@@ -263,6 +265,12 @@ export function AppProvider({ children }) {
     setTxPending(true);
     try {
       await fn();
+
+      // Si la tx de blockchain fue exitosa y tenemos payload de sincronización, actualizamos C#
+      if (syncPayload && targetAddress) {
+        await syncProjectToBackend(targetAddress, syncPayload);
+      }
+
       await loadProjects();
       if (account) await refreshBalance(account);
       if (successMsg) alert(successMsg);
@@ -276,21 +284,15 @@ export function AppProvider({ children }) {
     }
   }
 
+  // ─────────────── Métodos de Negocio Interceptados ───────────────
   async function createProject({ name, goal, description, durationDays, imageUrl }) {
-    if (!account) {
-      alert("Conecta tu wallet primero");
-      return;
-    }
-    if (!kycVerified) {
-      setKycModalOpen(true);
-      return;
-    }
+    if (!account) return alert("Conecta tu wallet primero");
+    if (!kycVerified) return setKycModalOpen(true);
+    
     setTxPending(true);
     try {
       const interestBps = calculateInterestBps(goal);
-      // Duración elegida por el negociador (entre 1 semana y 6 meses).
       const days = Math.min(Math.max(Number(durationDays) || 30, 7), 180);
-      // Cuotas: semanales para plazos cortos, mensuales para plazos largos.
       const repaymentInterval = days <= 30 ? 7 * 24 * 3600 : 30 * 24 * 3600;
 
       const result = await createProjectOnChain(
@@ -301,7 +303,6 @@ export function AppProvider({ children }) {
         `ipfs://${name}`
       );
 
-      // Guardar metadata en el backend (tolerante a fallos).
       try {
         await fetch(`${BACKEND_URL}/api/proyectos`, {
           method: "POST",
@@ -321,7 +322,7 @@ export function AppProvider({ children }) {
           }),
         });
       } catch {
-        /* backend opcional */
+        console.warn("No se pudo registrar la metadata inicial en el backend.");
       }
 
       await loadProjects();
@@ -339,24 +340,49 @@ export function AppProvider({ children }) {
   const invest = (contractAddress, amount) => {
     const value = Number(amount);
     if (!value || value <= 0) return alert("Ingrese un monto válido");
-    return runTx(() => investOnChain(contractAddress, value), "✅ Inversión realizada");
+
+    // Buscamos el proyecto local para sumar el acumulado en la sincronización
+    const currentProj = projects.find(p => p.contractAddress.toLowerCase() === contractAddress.toLowerCase());
+    const newRaised = currentProj ? currentProj.raised + value : value;
+
+    return runTx(
+      () => investOnChain(contractAddress, value),
+      "✅ Inversión realizada con éxito",
+      { montoActual: newRaised }, 
+      contractAddress
+    );
   };
+
+  const finalizeFunding = (contractAddress) =>
+    runTx(
+      () => finalizeFundingOnChain(contractAddress), 
+      "✅ Funding finalizado, proyecto activo",
+      { estado: "Active" },
+      contractAddress
+    );
+
+  const requestMilestone = (contractAddress, evidenceURI) =>
+    runTx(
+      () => requestMilestoneReleaseOnChain(contractAddress, evidenceURI), 
+      "✅ Votación de milestone iniciada",
+      { estado: "Voting" },
+      contractAddress
+    );
+
+  const finalizeVoting = (contractAddress, milestoneId) =>
+    runTx(
+      () => finalizeVotingOnChain(contractAddress, milestoneId), 
+      "✅ Votación finalizada",
+      { estado: "Active" }, // Regresa a activo una vez que se cierra la gobernanza del hito
+      contractAddress
+    );
+
+  const makeRepayment = (contractAddress, index) =>
+    runTx(() => makeRepaymentOnChain(contractAddress, index), "✅ Cuota pagada con éxito");
 
   const vote = (contractAddress, milestoneId, support) =>
     runTx(() => voteOnChain(contractAddress, milestoneId, support),
       support ? "✅ Voto a favor registrado" : "✅ Voto en contra registrado");
-
-  const finalizeFunding = (contractAddress) =>
-    runTx(() => finalizeFundingOnChain(contractAddress), "✅ Funding finalizado, proyecto activo");
-
-  const requestMilestone = (contractAddress, evidenceURI) =>
-    runTx(() => requestMilestoneReleaseOnChain(contractAddress, evidenceURI), "✅ Votación de milestone iniciada");
-
-  const finalizeVoting = (contractAddress, milestoneId) =>
-    runTx(() => finalizeVotingOnChain(contractAddress, milestoneId), "✅ Votación finalizada");
-
-  const makeRepayment = (contractAddress, index) =>
-    runTx(() => makeRepaymentOnChain(contractAddress, index), "✅ Cuota pagada");
 
   const claimRewards = (contractAddress) =>
     runTx(() => claimRewardsOnChain(contractAddress), "✅ Recompensas reclamadas");
@@ -370,10 +396,8 @@ export function AppProvider({ children }) {
     setActiveView("detail");
   }
 
-  // El proyecto seleccionado se deriva de la lista (siempre fresco).
   const selectedProject = projects.find((p) => p.contractAddress === selectedId) || null;
 
-  // Filtrado por rol.
   const isCreator = user?.activeRole === "creator";
   const visibleProjects = isCreator
     ? projects.filter((p) => account && p.creator?.toLowerCase() === account.toLowerCase())
