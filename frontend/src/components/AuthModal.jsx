@@ -1,129 +1,172 @@
 import { useState } from "react";
-import { Building2, Eye, EyeOff, UserPlus, X } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { X, LogIn, UserPlus } from "lucide-react";
 import Button from "./ui/Button";
-import Card from "./ui/Card";
 
 export default function AuthModal() {
-  const { loginOpen, closeLogin, login, authError } = useApp();
-
-  const [selectedRole, setSelectedRole] = useState("");
-  const [email, setEmail] = useState("");
+  const { loginOpen, closeLogin, login, register } = useApp();
+  
+  const [isRegister, setIsRegister] = useState(false);
+  const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [roleSelection, setRoleSelection] = useState("investor"); // 'investor' o 'creator'
+  
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   if (!loginOpen) return null;
 
-  function handleSubmit() {
-    if (!selectedRole) {
-      alert("Seleccione si ingresará como inversor o negociador");
-      return;
-    }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    const success = login(email, password, selectedRole);
-
-    if (success) {
-      setEmail("");
-      setPassword("");
-      setSelectedRole("");
+    try {
+      if (isRegister) {
+        if (!nombre || !correo || !password) {
+          throw new Error("Por favor completa todos los campos.");
+        }
+        await register(correo, password, nombre, roleSelection);
+      } else {
+        if (!correo || !password) {
+          throw new Error("Por favor ingresa correo y contraseña.");
+        }
+        await login(correo, password);
+      }
+      // Limpiar formulario y cerrar al tener éxito
+      resetForm();
+      closeLogin();
+    } catch (err) {
+      setError(err.message || "Ocurrió un error en la autenticación.");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
+
+  const resetForm = () => {
+    setCorreo("");
+    setPassword("");
+    setNombre("");
+    setError("");
+  };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 px-4 backdrop-blur">
-      <Card className="w-full max-w-3xl p-6" hoverEffect={false}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Ingreso a GreenFix</h2>
-            <p className="text-text-secondary">
-              Elige primero el rol y luego escribe tus datos de acceso.
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md transition-all">
+      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#0d0f12] p-8 shadow-2xl">
+        
+        {/* Botón Cerrar */}
+        <button
+          onClick={() => { resetForm(); closeLogin(); }}
+          className="absolute top-4 right-4 rounded-xl p-2 text-text-muted hover:bg-white/5 hover:text-white transition-colors"
+        >
+          <X size={18} />
+        </button>
+
+        {/* Título */}
+        <div className="mb-6 text-center">
+          <h2 className="text-2xl font-bold text-white tracking-tight">
+            {isRegister ? "Crear Cuenta en GreenFix" : "Bienvenido de nuevo"}
+          </h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            {isRegister ? "Regístrate para fondear o proponer hitos" : "Ingresa tus credenciales tradicionales"}
+          </p>
+        </div>
+
+        {/* Alerta de Error */}
+        {error && (
+          <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-center text-xs font-semibold text-red-400">
+            {error}
           </div>
+        )}
 
-          <button
-            onClick={closeLogin}
-            className="rounded-full p-2 text-text-secondary hover:bg-white/10 hover:text-white"
-          >
-            <X />
-          </button>
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <button
-            onClick={() => setSelectedRole("investor")}
-            className={`rounded-3xl border p-5 text-left transition ${
-              selectedRole === "investor"
-                ? "border-primary bg-primary/10 shadow-glow-primary"
-                : "border-white/10 bg-white/5 hover:bg-white/10"
-            }`}
-          >
-            <UserPlus className="text-primary" />
-            <h3 className="mt-3 text-lg font-bold text-white">Soy inversor</h3>
-            <p className="mt-2 text-sm text-text-secondary">
-              Podrás invertir, revisar proyectos y votar milestones.
-            </p>
-          </button>
-
-          <button
-            onClick={() => setSelectedRole("creator")}
-            className={`rounded-3xl border p-5 text-left transition ${
-              selectedRole === "creator"
-                ? "border-secondary bg-secondary/10 shadow-glow-secondary"
-                : "border-white/10 bg-white/5 hover:bg-white/10"
-            }`}
-          >
-            <Building2 className="text-secondary" />
-            <h3 className="mt-3 text-lg font-bold text-white">Soy negociador</h3>
-            <p className="mt-2 text-sm text-text-secondary">
-              Podrás crear proyectos, revisar avances y gestionar tus campañas.
-            </p>
-          </button>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <input
-              className="input-field"
-              placeholder="Correo electrónico"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-
-            <div className="relative">
+        {/* Formulario */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isRegister && (
+            <div>
+              <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block mb-1">Nombre Completo</label>
               <input
-                className="input-field pr-12"
-                placeholder="Contraseña"
-                type={showPass ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Ej. John Doe"
+                className="input-field w-full"
               />
-
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-primary"
-              >
-                {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
             </div>
-          </div>
-
-          {authError && (
-            <p className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-bold text-red-400">
-              {authError}
-            </p>
           )}
 
-          <Button onClick={handleSubmit} className="mt-4">
-            Entrar
-          </Button>
-
-          <div className="mt-4 text-sm text-text-muted">
-            <p>Inversor: inversor@gmail.com / 12345</p>
-            <p>Negociador: negociador@gmail.com / 12345</p>
+          <div>
+            <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block mb-1">Correo Electrónico</label>
+            <input
+              type="email"
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
+              placeholder="correo@ejemplo.com"
+              className="input-field w-full"
+            />
           </div>
+
+          <div>
+            <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block mb-1">Contraseña</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="input-field w-full"
+            />
+          </div>
+
+          {/* Selección de Rol (Solo en registro) */}
+          {isRegister && (
+            <div>
+              <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block mb-2">Selecciona tu Rol Inicial</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRoleSelection("investor")}
+                  className={`p-3 rounded-2xl border text-sm font-semibold transition-all ${
+                    roleSelection === "investor"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-white/10 bg-white/[0.02] text-text-secondary hover:border-white/20"
+                  }`}
+                >
+                  Inversor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoleSelection("creator")}
+                  className={`p-3 rounded-2xl border text-sm font-semibold transition-all ${
+                    roleSelection === "creator"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-white/10 bg-white/[0.02] text-text-secondary hover:border-white/20"
+                  }`}
+                >
+                  Negociador / Creador
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Botón Submit */}
+          <Button type="submit" variant="primary" className="w-full mt-6 gap-2" disabled={loading}>
+            {isRegister ? <UserPlus size={18} /> : <LogIn size={18} />}
+            {loading ? "Procesando..." : isRegister ? "Registrarse" : "Ingresar"}
+          </Button>
+        </form>
+
+        {/* Toggle Modo */}
+        <div className="mt-6 text-center text-xs text-text-secondary">
+          {isRegister ? "¿Ya tienes una cuenta?" : "¿No tienes una cuenta aún?"}{" "}
+          <button
+            onClick={() => { setIsRegister(!isRegister); setError(""); }}
+            className="font-bold text-primary hover:underline ml-1"
+          >
+            {isRegister ? "Inicia Sesión" : "Regístrate aquí"}
+          </button>
         </div>
-      </Card>
+
+      </div>
     </div>
   );
 }

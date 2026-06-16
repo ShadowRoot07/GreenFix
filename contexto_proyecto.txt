@@ -1,0 +1,3413 @@
+=== COMIENZO DEL VOLCADO DE CONTEXTO ===
+
+
+========================================
+FILE: ./backend/Controllers/EvidenciasController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class EvidenciasController : ControllerBase
+{
+    private readonly GreenFixDbContext _context;
+
+    public EvidenciasController(GreenFixDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var evidencias = await _context.Evidencias.OrderBy(e => e.EvidenciaID).ToListAsync();
+        return Ok(evidencias);
+    }
+
+    [HttpGet("proyecto/{proyectoId}")]
+    public async Task<IActionResult> GetByProyecto(int proyectoId)
+    {
+        var evidencias = await _context.Evidencias.Where(e => e.ProyectoID == proyectoId).ToListAsync();
+        return Ok(evidencias);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Evidencia evidencia)
+    {
+        if (evidencia == null) return BadRequest();
+        if (evidencia.FechaSubida == default) evidencia.FechaSubida = DateTime.UtcNow;
+        _context.Evidencias.Add(evidencia);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetAll), new { id = evidencia.EvidenciaID }, evidencia);
+    }
+}
+
+
+========================================
+FILE: ./backend/Controllers/HelloController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using backend.Data;
+using System.Threading.Tasks;
+
+namespace backend.Controllers
+{
+    [ApiController]
+    public class HelloController : ControllerBase
+    {
+        private readonly GreenFixDbContext _context;
+
+        public HelloController(GreenFixDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet("")]
+        public async Task<IActionResult> Get()
+        {
+            bool dbConnected = false;
+            try
+            {
+                dbConnected = await _context.Database.CanConnectAsync();
+            }
+            catch
+            {
+                dbConnected = false;
+            }
+
+            return Ok(new { message = "Hola Mundo", databaseConnected = dbConnected });
+        }
+    }
+}
+
+
+========================================
+FILE: ./backend/Controllers/InversionesController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class InversionesController : ControllerBase
+{
+    private readonly GreenFixDbContext _context;
+
+    public InversionesController(GreenFixDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var inversiones = await _context.Inversiones.OrderBy(i => i.InversionID).ToListAsync();
+        return Ok(inversiones);
+    }
+
+    [HttpGet("proyecto/{proyectoId}")]
+    public async Task<IActionResult> GetByProyecto(int proyectoId)
+    {
+        var inversiones = await _context.Inversiones.Where(i => i.ProyectoID == proyectoId).ToListAsync();
+        return Ok(inversiones);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Inversion inversion)
+    {
+        if (inversion == null) return BadRequest();
+        _context.Inversiones.Add(inversion);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetAll), new { id = inversion.InversionID }, inversion);
+    }
+}
+
+
+========================================
+FILE: ./backend/Controllers/MilestonesController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class MilestonesController : ControllerBase
+{
+    private readonly GreenFixDbContext _context;
+
+    public MilestonesController(GreenFixDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var milestones = await _context.Milestones.OrderBy(m => m.MilestoneID).ToListAsync();
+        return Ok(milestones);
+    }
+
+    [HttpGet("proyecto/{proyectoId}")]
+    public async Task<IActionResult> GetByProyecto(int proyectoId)
+    {
+        var milestones = await _context.Milestones
+            .Where(m => m.ProyectoID == proyectoId)
+            .OrderBy(m => m.NumeroMilestone)
+            .ToListAsync();
+        return Ok(milestones);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Milestone milestone)
+    {
+        if (milestone == null) return BadRequest();
+        _context.Milestones.Add(milestone);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetAll), new { id = milestone.MilestoneID }, milestone);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] Milestone datos)
+    {
+        var milestone = await _context.Milestones.FindAsync(id);
+        if (milestone == null) return NotFound();
+
+        milestone.Liberado = datos.Liberado;
+        if (!string.IsNullOrWhiteSpace(datos.Estado)) milestone.Estado = datos.Estado;
+        if (!string.IsNullOrWhiteSpace(datos.EvidenciaURL)) milestone.EvidenciaURL = datos.EvidenciaURL;
+
+        await _context.SaveChangesAsync();
+        return Ok(milestone);
+    }
+}
+
+
+========================================
+FILE: ./backend/Controllers/PagosController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class PagosController : ControllerBase
+{
+    private readonly GreenFixDbContext _context;
+
+    public PagosController(GreenFixDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var pagos = await _context.Pagos.OrderBy(p => p.PagoID).ToListAsync();
+        return Ok(pagos);
+    }
+
+    [HttpGet("proyecto/{proyectoId}")]
+    public async Task<IActionResult> GetByProyecto(int proyectoId)
+    {
+        var pagos = await _context.Pagos
+            .Where(p => p.ProyectoID == proyectoId)
+            .OrderBy(p => p.NumeroCuota)
+            .ToListAsync();
+        return Ok(pagos);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Pago pago)
+    {
+        if (pago == null) return BadRequest();
+        _context.Pagos.Add(pago);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetAll), new { id = pago.PagoID }, pago);
+    }
+
+    [HttpPut("{id}/pagar")]
+    public async Task<IActionResult> MarcarPagado(int id)
+    {
+        var pago = await _context.Pagos.FindAsync(id);
+        if (pago == null) return NotFound();
+
+        pago.Pagado = true;
+        pago.FechaPago = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(pago);
+    }
+}
+
+
+========================================
+FILE: ./backend/Controllers/ProyectosController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ProyectosController : ControllerBase
+{
+    private readonly GreenFixDbContext _context;
+
+    public ProyectosController(GreenFixDbContext context)
+    {
+        _context = context;
+    }
+
+    /// <summary>
+    /// Obtiene la lista de todos los proyectos de la base de datos
+    /// </summary>
+    /// <returns>Lista de proyectos con su ContractAddress</returns>
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Proyecto>>> GetProyectos()
+    {
+        try
+        {
+            var proyectos = await _context.Proyectos
+                .OrderByDescending(p => p.FechaCreacion)
+                .ToListAsync();
+
+            return Ok(proyectos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { mensaje = "Error al obtener proyectos", detalle = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Obtiene un proyecto específico por su ID
+    /// </summary>
+    [HttpGet("{id}")]
+    public async Task<ActionResult<Proyecto>> GetProyecto(int id)
+    {
+        try
+        {
+            var proyecto = await _context.Proyectos.FindAsync(id);
+
+            if (proyecto == null)
+            {
+                return NotFound(new { mensaje = $"Proyecto con ID {id} no encontrado" });
+            }
+
+            return Ok(proyecto);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { mensaje = "Error al obtener el proyecto", detalle = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Obtiene proyectos por estado (Activo, Completado, Cancelado, etc.)
+    /// </summary>
+    [HttpGet("estado/{estado}")]
+    public async Task<ActionResult<IEnumerable<Proyecto>>> GetProyectosPorEstado(string estado)
+    {
+        try
+        {
+            var proyectos = await _context.Proyectos
+                .Where(p => p.Estado == estado)
+                .OrderByDescending(p => p.FechaCreacion)
+                .ToListAsync();
+
+            return Ok(proyectos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { mensaje = "Error al filtrar proyectos", detalle = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Obtiene un proyecto por su ContractAddress
+    /// </summary>
+    [HttpGet("contract/{contractAddress}")]
+    public async Task<ActionResult<Proyecto>> GetProyectoPorContract(string contractAddress)
+    {
+        try
+        {
+            var proyecto = await _context.Proyectos
+                .FirstOrDefaultAsync(p => p.ContractAddress == contractAddress);
+
+            if (proyecto == null)
+            {
+                return NotFound(new { mensaje = $"Proyecto con contrato {contractAddress} no encontrado" });
+            }
+
+            return Ok(proyecto);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { mensaje = "Error al obtener el proyecto", detalle = ex.Message });
+        }
+    }
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Proyecto proyecto)
+    {
+        proyecto.FechaCreacion = DateTime.UtcNow;
+        if (string.IsNullOrWhiteSpace(proyecto.Estado))
+            proyecto.Estado = "Funding";
+        _context.Proyectos.Add(proyecto);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetProyecto), new { id = proyecto.Id }, proyecto);
+    }
+
+    /// <summary>
+    /// Actualiza el estado on-chain del proyecto (estado y monto recaudado).
+    /// Se usa para sincronizar la metadata del backend con la blockchain.
+    /// </summary>
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] Proyecto datos)
+    {
+        var proyecto = await _context.Proyectos.FindAsync(id);
+        if (proyecto == null)
+            return NotFound(new { mensaje = $"Proyecto con ID {id} no encontrado" });
+
+        if (!string.IsNullOrWhiteSpace(datos.Estado)) proyecto.Estado = datos.Estado;
+        if (datos.MontoActual > 0) proyecto.MontoActual = datos.MontoActual;
+        if (datos.Estado == "Completed") proyecto.FechaFinalizacion = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return Ok(proyecto);
+    }
+
+    /// <summary>
+    /// Sincroniza el estado leído de la blockchain por dirección de contrato.
+    /// </summary>
+    [HttpPut("contract/{contractAddress}/estado")]
+    public async Task<IActionResult> UpdateEstadoPorContract(string contractAddress, [FromBody] Proyecto datos)
+    {
+        var proyecto = await _context.Proyectos
+            .FirstOrDefaultAsync(p => p.ContractAddress == contractAddress);
+        if (proyecto == null)
+            return NotFound(new { mensaje = $"Proyecto con contrato {contractAddress} no encontrado" });
+
+        if (!string.IsNullOrWhiteSpace(datos.Estado)) proyecto.Estado = datos.Estado;
+        if (datos.MontoActual > 0) proyecto.MontoActual = datos.MontoActual;
+
+        await _context.SaveChangesAsync();
+        return Ok(proyecto);
+    }
+}
+
+
+
+========================================
+FILE: ./backend/Controllers/RecompensasController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class RecompensasController : ControllerBase
+{
+    private readonly GreenFixDbContext _context;
+
+    public RecompensasController(GreenFixDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var recompensas = await _context.Recompensas.OrderBy(r => r.RecompensaID).ToListAsync();
+        return Ok(recompensas);
+    }
+
+    [HttpGet("proyecto/{proyectoId}")]
+    public async Task<IActionResult> GetByProyecto(int proyectoId)
+    {
+        var recompensas = await _context.Recompensas.Where(r => r.ProyectoID == proyectoId).ToListAsync();
+        return Ok(recompensas);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Recompensa recompensa)
+    {
+        if (recompensa == null) return BadRequest();
+        _context.Recompensas.Add(recompensa);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetAll), new { id = recompensa.RecompensaID }, recompensa);
+    }
+
+    [HttpPut("{id}/reclamar")]
+    public async Task<IActionResult> MarcarReclamada(int id)
+    {
+        var recompensa = await _context.Recompensas.FindAsync(id);
+        if (recompensa == null) return NotFound();
+
+        recompensa.Reclamada = true;
+        recompensa.FechaReclamo = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(recompensa);
+    }
+}
+
+
+========================================
+FILE: ./backend/Controllers/ReembolsosController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ReembolsosController : ControllerBase
+{
+    private readonly GreenFixDbContext _context;
+
+    public ReembolsosController(GreenFixDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var reembolsos = await _context.Reembolsos.OrderBy(r => r.ReembolsoID).ToListAsync();
+        return Ok(reembolsos);
+    }
+
+    [HttpGet("proyecto/{proyectoId}")]
+    public async Task<IActionResult> GetByProyecto(int proyectoId)
+    {
+        var reembolsos = await _context.Reembolsos.Where(r => r.ProyectoID == proyectoId).ToListAsync();
+        return Ok(reembolsos);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Reembolso reembolso)
+    {
+        if (reembolso == null) return BadRequest();
+        _context.Reembolsos.Add(reembolso);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetAll), new { id = reembolso.ReembolsoID }, reembolso);
+    }
+}
+
+
+========================================
+FILE: ./backend/Controllers/UsuariosController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class UsuariosController : ControllerBase
+{
+    private readonly GreenFixDbContext _context;
+
+    public UsuariosController(GreenFixDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var usuarios = await _context.Usuarios.OrderBy(u => u.UsuarioID).ToListAsync();
+        return Ok(usuarios);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> Get(int id)
+    {
+        var usuario = await _context.Usuarios.FindAsync(id);
+        if (usuario == null) return NotFound();
+        return Ok(usuario);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Usuario usuario)
+    {
+        if (usuario == null) return BadRequest();
+        _context.Usuarios.Add(usuario);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(Get), new { id = usuario.UsuarioID }, usuario);
+    }
+}
+
+
+========================================
+FILE: ./backend/Controllers/VotosController.cs
+========================================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+
+namespace backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class VotosController : ControllerBase
+{
+    private readonly GreenFixDbContext _context;
+
+    public VotosController(GreenFixDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var votos = await _context.Votos.OrderBy(v => v.VotoID).ToListAsync();
+        return Ok(votos);
+    }
+
+    [HttpGet("milestone/{milestoneId}")]
+    public async Task<IActionResult> GetByMilestone(int milestoneId)
+    {
+        var votos = await _context.Votos.Where(v => v.MilestoneID == milestoneId).ToListAsync();
+        return Ok(votos);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Voto voto)
+    {
+        if (voto == null) return BadRequest();
+        _context.Votos.Add(voto);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetAll), new { id = voto.VotoID }, voto);
+    }
+}
+
+
+========================================
+FILE: ./backend/Models/Evidencia.cs
+========================================
+using System;
+
+namespace backend.Models;
+
+public class Evidencia
+{
+    public int EvidenciaID { get; set; }
+    public int ProyectoID { get; set; }
+    public string? Titulo { get; set; }
+    public string ArchivoURL { get; set; } = string.Empty;
+    public string? TipoArchivo { get; set; }
+    public DateTime FechaSubida { get; set; }
+}
+
+
+========================================
+FILE: ./backend/Models/Inversion.cs
+========================================
+using System;
+
+namespace backend.Models;
+
+public class Inversion
+{
+    public int InversionID { get; set; }
+    public int ProyectoID { get; set; }
+    public int UsuarioID { get; set; }
+    public decimal MontoInvertido { get; set; }
+    public decimal TokensAsignados { get; set; }
+    public DateTime FechaInversion { get; set; }
+}
+
+
+========================================
+FILE: ./backend/Models/Milestone.cs
+========================================
+using System;
+
+namespace backend.Models;
+
+public class Milestone
+{
+    public int MilestoneID { get; set; }
+    public int ProyectoID { get; set; }
+    public int NumeroMilestone { get; set; }
+    public int Porcentaje { get; set; }
+    public decimal Monto { get; set; }
+    public bool Liberado { get; set; }
+    public string? EvidenciaURL { get; set; }
+    public DateTime? FechaInicioVotacion { get; set; }
+    public DateTime? FechaFinVotacion { get; set; }
+    public string Estado { get; set; } = "Pendiente";
+}
+
+
+========================================
+FILE: ./backend/Models/Pago.cs
+========================================
+using System;
+
+namespace backend.Models;
+
+public class Pago
+{
+    public int PagoID { get; set; }
+    public int ProyectoID { get; set; }
+    public int NumeroCuota { get; set; }
+    public decimal MontoPago { get; set; }
+    public DateTime FechaLimite { get; set; }
+    public bool Pagado { get; set; }
+    public DateTime? FechaPago { get; set; }
+}
+
+
+========================================
+FILE: ./backend/Models/Proyecto.cs
+========================================
+namespace backend.Models;
+
+public class Proyecto
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string Descripcion { get; set; } = string.Empty;
+    public decimal MontoObjetivo { get; set; }
+    public decimal MontoActual { get; set; }
+    public decimal Interes { get; set; }           // ← NUEVO
+    public int DuracionMeses { get; set; }         // ← NUEVO
+    public decimal Garantia { get; set; }          // ← NUEVO
+    public string? ImagenURL { get; set; }          // ← URL de imagen personalizada
+    public string ContractAddress { get; set; } = string.Empty;
+    public string Estado { get; set; } = "Funding";
+    public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+    public DateTime? FechaFinalizacion { get; set; }
+    public int EmprendedorId { get; set; }
+}
+
+
+========================================
+FILE: ./backend/Models/Recompensa.cs
+========================================
+using System;
+
+namespace backend.Models;
+
+public class Recompensa
+{
+    public int RecompensaID { get; set; }
+    public int ProyectoID { get; set; }
+    public int UsuarioID { get; set; }
+    public decimal MontoGanancia { get; set; }
+    public bool Reclamada { get; set; }
+    public DateTime? FechaReclamo { get; set; }
+}
+
+
+========================================
+FILE: ./backend/Models/Reembolso.cs
+========================================
+using System;
+
+namespace backend.Models;
+
+public class Reembolso
+{
+    public int ReembolsoID { get; set; }
+    public int ProyectoID { get; set; }
+    public int UsuarioID { get; set; }
+    public decimal MontoReembolso { get; set; }
+    public DateTime FechaReembolso { get; set; }
+}
+
+
+========================================
+FILE: ./backend/Models/Usuario.cs
+========================================
+using System;
+
+namespace backend.Models;
+
+public class Usuario
+{
+    public int UsuarioID { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string WalletAddress { get; set; } = string.Empty;
+    public string TipoUsuario { get; set; } = "Inversor";
+    public DateTime FechaRegistro { get; set; }
+}
+
+
+========================================
+FILE: ./backend/Models/Voto.cs
+========================================
+using System;
+
+namespace backend.Models;
+
+public class Voto
+{
+    public int VotoID { get; set; }
+    public int MilestoneID { get; set; }
+    public int UsuarioID { get; set; }
+    public bool VotoValor { get; set; }
+    public decimal PesoVoto { get; set; }
+    public DateTime FechaVoto { get; set; }
+}
+
+
+========================================
+FILE: ./backend/Program.cs
+========================================
+using backend.Data;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
+
+using System.Diagnostics; //para usar datos del sistema
+
+var builder = WebApplication.CreateBuilder(args);
+
+// ──────────────────────────────────────────────────────────────────────────
+//  Conexión dinámica WSL → SQL Server en Windows
+//  ----------------------------------------------------------------------
+//  Cuando el backend corre dentro de WSL, "localhost" NO apunta a Windows.
+//  La IP del host Windows es la puerta de enlace por defecto de WSL, que se
+//  obtiene con `ip route | grep default`. Tomamos la cadena base de
+//  appsettings y le inyectamos esa IP como host (preservando puerto,
+//  credenciales y demás opciones).
+// ──────────────────────────────────────────────────────────────────────────
+
+// Detecta la IP del host Windows desde WSL. Devuelve null si no la encuentra.
+static string? ResolveWslHost()
+{
+    try
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "sh",
+                Arguments = "-c \"ip route | grep default | awk '{print $3}'\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            }
+        };
+        process.Start();
+        string output = process.StandardOutput.ReadToEnd().Trim();
+        process.WaitForExit();
+        return string.IsNullOrWhiteSpace(output) ? null : output;
+    }
+    catch
+    {
+        return null; // No estamos en WSL o el comando no está disponible.
+    }
+}
+
+var baseConnection = builder.Configuration.GetConnectionString("GreenFixConnection")
+    ?? "Server=localhost,1433;Database=GreenFix;User Id=greenfix_user;Password=GreenFix123!;TrustServerCertificate=True;";
+
+var csb = new SqlConnectionStringBuilder(baseConnection);
+
+// Puerto definido en la cadena base (por defecto 1433).
+var basePort = "1433";
+var dataSourceParts = csb.DataSource.Split(',');
+if (dataSourceParts.Length > 1) basePort = dataSourceParts[^1].Trim();
+
+// 1) Override explícito desde configuración tiene prioridad.
+var hostOverride = builder.Configuration["Database:HostOverride"];
+var autoResolve = builder.Configuration.GetValue("Database:AutoResolveWslHost", true);
+
+string resolvedHost;
+if (!string.IsNullOrWhiteSpace(hostOverride))
+{
+    resolvedHost = hostOverride.Trim();
+    Console.WriteLine($"🔌 SQL host (override de configuración): {resolvedHost}");
+}
+else if (autoResolve && ResolveWslHost() is string wslIp)
+{
+    resolvedHost = wslIp;
+    Console.WriteLine($"🔌 SQL host (IP dinámica de WSL): {resolvedHost}");
+}
+else
+{
+    resolvedHost = (dataSourceParts.Length > 0 ? dataSourceParts[0] : "localhost");
+    Console.WriteLine($"🔌 SQL host (cadena base): {resolvedHost}");
+}
+
+csb.DataSource = $"{resolvedHost},{basePort}";
+var connectionString = csb.ConnectionString;
+
+// Add services to the container.
+builder.Services.AddControllers();
+// Swagger/OpenAPI (Swashbuckle)
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Configurar Entity Framework Core con SQL Server
+builder.Services.AddDbContext<GreenFixDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+// Note: Removed AddOpenApi to avoid conflicts with Swashbuckle
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
+var app = builder.Build();
+
+// Aplicar migraciones automáticamente al arrancar. Si la base de datos no está
+// disponible (SQL Server apagado), la app igual arranca: el frontend tolera que
+// el backend no responda y la blockchain es la fuente de verdad.
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<GreenFixDbContext>();
+
+        if (!db.Database.CanConnect())
+        {
+            Console.WriteLine("⚠️  SQL Server no disponible. El API arranca igual; los endpoints de BD fallarán hasta que esté disponible.");
+        }
+        else
+        {
+            if (db.Database.GetAppliedMigrations().Any())
+            {
+                // Hay historial de migraciones: aplicamos las pendientes con normalidad.
+                db.Database.Migrate();
+                Console.WriteLine("✅ Base de datos lista (migraciones al día).");
+            }
+            else if (db.Database.GetService<IRelationalDatabaseCreator>().HasTables())
+            {
+                // El esquema ya existe (creado por script SQL) pero sin historial de
+                // migraciones: no migramos para no chocar con las tablas existentes.
+                Console.WriteLine("ℹ️  Esquema existente detectado; se omiten las migraciones.");
+            }
+            else
+            {
+                // Base de datos vacía: creamos el esquema desde las migraciones.
+                db.Database.Migrate();
+                Console.WriteLine("✅ Base de datos creada desde migraciones.");
+            }
+
+            // Self-heal de columnas nuevas: garantiza que el esquema tenga las
+            // columnas que el modelo espera, aunque la BD se haya creado con un
+            // script SQL anterior. Idempotente y seguro (no toca si ya existe).
+            db.Database.ExecuteSqlRaw(@"
+                IF OBJECT_ID('dbo.Proyectos','U') IS NOT NULL
+                   AND COL_LENGTH('dbo.Proyectos','ImagenURL') IS NULL
+                    ALTER TABLE dbo.Proyectos ADD ImagenURL NVARCHAR(500) NULL;");
+            Console.WriteLine("✅ Esquema verificado (columna ImagenURL disponible).");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠️  No se pudo inicializar la base de datos: {ex.Message}");
+        Console.WriteLine("    El API arrancará igual; los endpoints de BD fallarán hasta que SQL Server esté disponible.");
+    }
+}
+
+// Health check simple para verificar que el API responde.
+app.MapGet("/api/health", () => Results.Ok(new { status = "ok", service = "GreenFix API" }));
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    // Enable Swagger (OpenAPI) middleware and UI in Development
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors("AllowAll");
+
+// Only enable HTTPS redirection when the host environment is Development
+// or when an HTTPS endpoint is configured. This avoids the middleware
+// warning "Failed to determine the https port for redirect" when the
+// app is running with only an HTTP endpoint (common in simple local runs).
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
+
+
+========================================
+FILE: ./contracts/contracts/core/GreenFixFactory.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "./GreenFixProject.sol";
+import "../interfaces/IGreenFixFactory.sol";
+
+contract GreenFixFactory is IGreenFixFactory {
+    struct ProjectInfo {
+        address projectAddress;
+        address creator;
+        uint256 fundingGoal;
+        uint256 createdAt;
+        string metadataURI;
+    }
+
+    address public usdc;
+    uint256 public defaultPlatformFeeBps;
+    uint256 public defaultVotingDuration;
+    uint256 public defaultGracePeriod;
+    uint256 public defaultClaimPeriod;
+    address public feeCollector;
+
+    mapping(uint256 => ProjectInfo) public projects;
+    uint256 public projectCount;
+
+    event ProjectCreated(
+        uint256 indexed projectId,
+        address indexed creator,
+        address projectAddress,
+        uint256 fundingGoal,
+        string metadataURI
+    );
+
+    constructor(
+        address _usdc,
+        uint256 _platformFeeBps,
+        uint256 _votingDuration,
+        uint256 _gracePeriod,
+        uint256 _claimPeriod,
+        address _feeCollector
+    ) {
+        usdc = _usdc;
+        defaultPlatformFeeBps = _platformFeeBps;
+        defaultVotingDuration = _votingDuration;
+        defaultGracePeriod = _gracePeriod;
+        defaultClaimPeriod = _claimPeriod;
+        feeCollector = _feeCollector;
+    }
+
+    function createProject(
+        uint256 fundingGoal,
+        uint256 interestBps,
+        uint256 durationInDays,
+        uint256 repaymentInterval,
+        string calldata metadataURI
+    ) external override returns (uint256 projectId) {
+        uint256 guarantee = (fundingGoal * 5) / 100;
+    projectId = ++projectCount;
+
+        uint256 fundingDeadline = block.timestamp + 30 days; // ejemplo fijo o parametrizable
+
+        // Deploy del contrato de proyecto
+        GreenFixProject project = new GreenFixProject(
+            address(this),
+            usdc,
+            fundingGoal,
+            interestBps,
+            defaultPlatformFeeBps,
+            defaultVotingDuration,
+            repaymentInterval,
+            defaultGracePeriod,
+            defaultClaimPeriod,
+            fundingDeadline,
+            msg.sender,
+            durationInDays,
+            guarantee,
+            feeCollector  
+        );
+
+        projects[projectId] = ProjectInfo({
+            projectAddress: address(project),
+            creator: msg.sender,
+            fundingGoal: fundingGoal,
+            createdAt: block.timestamp,
+            metadataURI: metadataURI
+        });
+
+        emit ProjectCreated(projectId, msg.sender, address(project), fundingGoal, metadataURI);
+    }
+
+    function getProject(uint256 projectId) external view override returns (
+        address projectAddress,
+        address creator,
+        uint256 fundingGoal,
+        uint256 createdAt,
+        string memory metadataURI
+    ) {
+        ProjectInfo memory p = projects[projectId];
+        return (p.projectAddress, p.creator, p.fundingGoal, p.createdAt, p.metadataURI);
+    }
+}
+
+========================================
+FILE: ./contracts/contracts/core/GreenFixProject.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+//import "@openzeppelin/contracts/security/Pausable.sol";// or 
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "./ProjectToken.sol";
+import "../libraries/ProjectState.sol";
+import "../libraries/Errors.sol";
+
+
+contract GreenFixProject is ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
+    uint256 public guarantee;
+    bool public guaranteeDeposited;
+
+    uint256 public constant MIN_INVESTMENT = 10 * 1e6; // 10 USDC
+    //uint256 public constant MIN_INVESTMENT = 10 ether;
+
+    // ────────────── STRUCTS ──────────────
+
+    struct ProjectConfig {
+        uint256 fundingGoal;
+        uint256 interestBps;
+        uint256 platformFeeBps;
+        uint256 fundingDeadline;
+        uint256 loanDurationInDays;
+    }
+
+    struct TimeConfig {
+        uint256 votingDuration;
+        uint256 repaymentInterval;
+        uint256 gracePeriod;
+        uint256 claimPeriod;
+    }
+
+    struct Milestone {
+        uint8 percentage;
+        uint256 amount;
+        bool released;
+        bool votingActive;
+        bool extended;        // ← NUEVO
+        uint256 voteStart;
+        uint256 voteEnd;
+        uint256 votesFor;
+        uint256 votesAgainst;
+        uint256 totalParticipation;
+        string evidenceURI;
+        uint256 nonce;        // ← NUEVO
+    }
+
+    struct Repayment {
+        uint256 dueDate;
+        uint256 amount;
+        bool paid;
+    }
+
+    // ────────────── STATE VARIABLES ──────────────
+
+    // Immutables
+    address public factory;
+    IERC20 public usdc;
+    ProjectToken public projectToken;
+
+    // Configuraciones
+    ProjectConfig public config;
+    TimeConfig public timeConfig;
+
+    // Estados
+    ProjectState public state;
+
+    // Creador del proyecto (depositó garantía)
+    address public creator;
+
+    // Financiamiento
+    uint256 public totalRaised;
+    //uint256 public totalTokensMinted; // debe coincidir con totalRaised
+    bool public fundingFinalized;
+
+    // Registro de inversores
+    address[] public investors;
+    mapping(address => bool) public isInvestor;
+
+    // Milestones
+    Milestone[] public milestones;
+    uint256 public currentMilestone;
+
+    // Repayments
+    Repayment[] public repayments;
+
+    // Variables financieras separadas
+    uint256 public totalPrincipalRepaid;
+    uint256 public totalInterestRepaid;
+    uint256 public totalReleased;       // fondos liberados al creador por milestones
+
+    // Refunds
+    uint256 public refundPool;          // capital restante + garantía
+    mapping(address => bool) public hasClaimedRefund;
+
+    // Rewards
+    mapping(address => uint256) public claimedRewards;
+
+    // Votaciones
+    mapping(uint256 => mapping(address => uint256)) public hasVotedNonce;    // Votación de default activa
+    bool public defaultVoteActive;
+    address public feeCollector;
+    // Contador de rechazos consecutivos
+    uint256 public consecutiveRejectedMilestones;
+
+    // Fee recolectado
+    uint256 public platformFeeCollected;
+
+    uint256 public refundTotalSupplySnapshot;   // Nuevo
+    // ────────────── MODIFIERS ──────────────
+
+    modifier onlyState(ProjectState expected) {
+        if (state != expected) revert InvalidState(expected, state);
+        _;
+    }
+
+    modifier onlyCreator() {
+        if (msg.sender != creator) revert OnlyCreator();
+        _;
+    }
+
+    modifier onlyInvestor() {
+        if (!isInvestor[msg.sender]) revert OnlyInvestor();
+        _;
+    }
+
+    modifier onlyFactory() {
+        if (msg.sender != factory) revert OnlyFactory();
+        _;
+    }
+
+    modifier onlyActiveVoting() {
+        // Verificar que hay una votación en curso en algún milestone
+        // Implementación detallada en Fase 8
+        _;
+    }
+
+    // ────────────── EVENTS ──────────────
+
+    event Invested(address indexed investor, uint256 amount, uint256 tokensMinted);
+    event MilestoneVotingStarted(uint256 indexed milestoneId, uint256 startTime, uint256 endTime);
+    event Voted(address indexed investor, uint256 indexed milestoneId, bool support, uint256 weight);
+    event MilestoneApproved(uint256 indexed milestoneId);
+    event FundsReleased(uint256 indexed milestoneId, uint256 amount);
+    event RefundActivated();
+    event RefundClaimed(address indexed investor, uint256 amount);
+    event RepaymentMade(address indexed creator, uint256 amount);
+    event ProjectCompleted();
+    event ProjectDefaulted();
+    event FundingCancelled();
+    event FundingFinalized(uint256 totalRaised, uint256 milestonesCount);
+
+
+    // ────────────── CONSTRUCTOR ──────────────
+
+    constructor(
+        address _factory,
+        address _usdc,
+        uint256 _fundingGoal,
+        uint256 _interestBps,
+        uint256 _platformFeeBps,
+        uint256 _votingDuration,
+        uint256 _repaymentInterval,
+        uint256 _gracePeriod,
+        uint256 _claimPeriod,
+        uint256 _fundingDeadline,
+        address _creator,
+        uint256 _loanDurationInDays,
+        uint256 _guarantee,
+        address _feeCollector  // ← NUEVO
+        //guarantee = _guarantee // solo guarda el monto, no se transfiere aún
+    ) {
+        factory = _factory;
+        usdc = IERC20(_usdc);
+        config = ProjectConfig({
+            fundingGoal: _fundingGoal,
+            interestBps: _interestBps,
+            platformFeeBps: _platformFeeBps,
+            fundingDeadline: _fundingDeadline,
+            loanDurationInDays: _loanDurationInDays
+        });
+        timeConfig = TimeConfig({
+            votingDuration: _votingDuration,
+            repaymentInterval: _repaymentInterval,
+            gracePeriod: _gracePeriod,
+            claimPeriod: _claimPeriod
+        });
+        creator = _creator;
+        state = ProjectState.Funding;
+        guarantee = _guarantee;
+        feeCollector = _feeCollector;  // ← NUEVO
+
+
+        // Desplegar token del proyecto (no transferible)
+        projectToken = new ProjectToken("GreenFix Project", "GPFT", address(this), factory);
+
+        // El creador deposita garantía (se hace en constructor o antes)
+        // require(usdc.transferFrom(creator, address(this), _guarantee), "Guarantee failed");
+        // refundPool += _guarantee;
+        if (_loanDurationInDays == 0) revert InvalidDuration();
+        //if ((_loanDurationInDays * 1 days) % _repaymentInterval != 0) revert InvalidRepaymentInterval();
+    }
+
+    // ────────────── FUNCIONES (esqueleto) ──────────────
+    // Las implementaremos fase por fase.
+    // Por ahora, solo declaraciones vacías o con revert para que compile.
+    function cancelFunding()
+        external
+        onlyState(ProjectState.Funding)
+        onlyCreator
+        whenNotPaused
+    {
+        state = ProjectState.Cancelled;
+
+        refundPool = totalRaised + guarantee;
+
+        //emit RefundActivated();
+    }
+
+    function requestMilestoneRelease(string calldata evidenceURI) 
+        external 
+        onlyState(ProjectState.Active) 
+        onlyCreator 
+        whenNotPaused 
+    {
+        // Verificar que hay milestones disponibles
+        if (currentMilestone >= milestones.length) revert NoMoreMilestones();
+        
+        Milestone storage milestone = milestones[currentMilestone];
+        
+        // Verificar que no esté ya liberado
+        if (milestone.released) revert MilestoneAlreadyReleased();
+        
+        // Verificar que no haya votación activa
+        if (milestone.votingActive) revert VotingAlreadyActive();
+        
+        // Verificar que el proyecto no esté en default
+        // (ya cubierto por onlyState(Active))
+        
+        // Guardar evidencia
+        milestone.evidenceURI = evidenceURI;
+        milestone.extended = false;
+        // Iniciar votación
+        milestone.votingActive = true; // false
+        milestone.voteStart = block.timestamp;
+        milestone.voteEnd = block.timestamp + timeConfig.votingDuration;
+        milestone.votesFor = 0;
+        milestone.votesAgainst = 0;
+        milestone.totalParticipation = 0;
+        // Limpiar votos anteriores del milestone
+        milestone.extended = false;
+        milestone.nonce++;
+        
+        // Cambiar estado a Voting
+        state = ProjectState.Voting;
+        
+        emit MilestoneVotingStarted(currentMilestone, milestone.voteStart, milestone.voteEnd);
+    }
+    function vote(uint256 milestoneId, bool support) 
+        external 
+        onlyState(ProjectState.Voting) 
+        onlyInvestor 
+        whenNotPaused 
+    {
+        // Verificar que el milestone es el actual
+        if (milestoneId != currentMilestone) revert InvalidMilestone();
+        
+        Milestone storage milestone = milestones[milestoneId];
+        
+        // Verificar que la votación esté activa
+        if (!milestone.votingActive) revert VotingNotActive();
+        
+        // Verificar que no haya votado ya
+        if (hasVotedNonce[milestoneId][msg.sender] == milestone.nonce) revert AlreadyVoted();
+        
+        // Verificar que la votación no haya terminado
+        if (block.timestamp >= milestone.voteEnd) revert VotingEnded();
+        
+        // Obtener peso del voto = balance de tokens
+        uint256 weight = projectToken.balanceOf(msg.sender);
+        if (weight == 0) revert NoVotingPower();
+        
+        // Registrar voto
+        hasVotedNonce[milestoneId][msg.sender] = milestone.nonce;
+        
+        if (support) {
+            milestone.votesFor += weight;
+        } else {
+            milestone.votesAgainst += weight;
+        }
+        milestone.totalParticipation += weight;
+        
+        emit Voted(msg.sender, milestoneId, support, weight);
+    }
+
+    function finalizeVoting(uint256 milestoneId) 
+    external 
+    onlyState(ProjectState.Voting) 
+    whenNotPaused 
+{
+    // Verificar que el milestone es el actual
+    if (milestoneId != currentMilestone) revert InvalidMilestone();
+    
+    Milestone storage milestone = milestones[milestoneId];
+    
+    // Verificar que la votación esté activa
+    if (!milestone.votingActive) revert VotingNotActive();
+    
+    // Verificar que haya terminado el tiempo
+    //if (block.timestamp < milestone.voteEnd) revert VotingNotEnded();
+    
+    uint256 totalSupply = projectToken.totalSupply();
+    if (totalSupply == 0) revert NoVotingPower();
+    uint256 participationPercent = (milestone.totalParticipation * 100) / totalSupply;
+    
+    // Verificar quorum mínimo (51%)
+    if (participationPercent < 51) {
+        // Sin quorum: extender 24 horas (solo primera vez)
+        if (!milestone.extended) {
+            milestone.voteEnd += 24 hours;
+            milestone.extended = true;
+            return; // No finalizar aún
+        } else {
+            // Segunda vez sin quorum: rechazar automáticamente
+            milestone.votingActive = false;
+            milestone.released = false;
+            consecutiveRejectedMilestones++;
+            state = ProjectState.Active;
+            
+            if (consecutiveRejectedMilestones >= 2) {
+                state = ProjectState.Defaulted;
+                emit ProjectDefaulted();
+            }
+            return;
+        }
+    }
+    
+    // Verificar mayoría simple
+    if (milestone.votesFor > milestone.votesAgainst) {
+        // Aprobado
+        milestone.released = true;
+        milestone.votingActive = false;
+        consecutiveRejectedMilestones = 0;
+    if (usdc.balanceOf(address(this)) < milestone.amount) {
+        revert NotEnoughBalance();
+    }    
+        // Liberar fondos al creador
+        usdc.safeTransfer(creator, milestone.amount);
+        totalReleased += milestone.amount;
+
+        // Avanzar al siguiente milestone.
+        // El proyecto NO se completa aquí: la finalización ocurre cuando el
+        // creador termina de pagar la deuda (ver makeRepayment). Tras liberar
+        // un milestone siempre volvemos a Active.
+        currentMilestone++;
+        state = ProjectState.Active;
+
+        emit MilestoneApproved(milestoneId);
+        emit FundsReleased(milestoneId, milestone.amount);
+    } else {
+        // Rechazado
+        milestone.votingActive = false;
+        milestone.released = false;
+        consecutiveRejectedMilestones++;
+        
+        // Volver a Active
+        state = ProjectState.Active;
+        
+        // Verificar doble rechazo
+        if (consecutiveRejectedMilestones >= 2) {
+            state = ProjectState.Defaulted;
+            emit ProjectDefaulted();
+        }
+    }
+}
+
+    function makeRepayment(uint256 repaymentIndex) 
+        external 
+        onlyState(ProjectState.Active) 
+        onlyCreator 
+        whenNotPaused 
+        nonReentrant
+    {
+        if (repaymentIndex >= repayments.length) revert InvalidRepayment();
+        
+        Repayment storage repayment = repayments[repaymentIndex];
+        
+        if (repayment.paid) revert PaymentAlreadyMade();
+
+        if (repaymentIndex > 0 && !repayments[repaymentIndex - 1].paid) {
+        revert PreviousRepaymentNotPaid();
+    }
+        
+        uint256 amount = repayment.amount;
+        usdc.safeTransferFrom(msg.sender, address(this), amount);
+        
+        repayment.paid = true;
+        
+        // Separar capital e interés
+        uint256 totalOwed = config.fundingGoal + ((config.fundingGoal * config.interestBps) / 10000);
+        uint256 totalInterest = (config.fundingGoal * config.interestBps) / 10000;
+        uint256 interestPortion = (amount * totalInterest) / totalOwed;
+        uint256 principalPortion = amount - interestPortion;
+        
+        totalPrincipalRepaid += principalPortion;
+        totalInterestRepaid += interestPortion;
+        
+        emit RepaymentMade(msg.sender, amount);
+        
+        // Verificar si TODAS las cuotas están pagadas
+        bool allPaid = true;
+        for (uint256 i = 0; i < repayments.length; i++) {
+            if (!repayments[i].paid) {
+                allPaid = false;
+                break;
+            }
+        }
+        
+        if (allPaid) {
+            state = ProjectState.Completed;
+            emit ProjectCompleted();
+        }
+    }
+
+    function triggerDefaultVote() 
+        external 
+        onlyState(ProjectState.Active) 
+        whenNotPaused 
+    {
+        bool hasOverdue = false;
+        for (uint256 i = 0; i < repayments.length; i++) {
+            if (!repayments[i].paid && block.timestamp > repayments[i].dueDate + timeConfig.gracePeriod) {
+                hasOverdue = true;
+                break;
+            }
+        }
+        
+        if (!hasOverdue) revert NoOverduePayments();
+        
+        state = ProjectState.Defaulted;
+        emit ProjectDefaulted();
+    }
+
+    function activateRefunds() 
+        external 
+        whenNotPaused 
+    {
+        if (state != ProjectState.Defaulted && state != ProjectState.Cancelled) {
+            revert InvalidState(ProjectState.Defaulted, state);
+        }
+        
+        refundPool = usdc.balanceOf(address(this));
+        refundTotalSupplySnapshot = projectToken.totalSupply(); // ← SNAPSHOT
+        
+        state = ProjectState.Refunding;
+        
+        emit RefundActivated();
+    }
+
+    function claimRefund() 
+        external 
+        onlyInvestor 
+        nonReentrant 
+        whenNotPaused 
+    {
+        if (state != ProjectState.Refunding) {
+            revert InvalidState(ProjectState.Refunding, state);
+        }
+        
+        if (hasClaimedRefund[msg.sender]) {
+            revert RefundAlreadyClaimed();
+        }
+        
+        uint256 userTokens = projectToken.balanceOf(msg.sender);
+        if (userTokens == 0) revert NoTokens();
+        
+        uint256 totalSupply = refundTotalSupplySnapshot; // ← USA SNAPSHOT
+        uint256 refundAmount = (userTokens * refundPool) / totalSupply;
+        
+        if (refundAmount == 0) revert NoRefundAvailable();
+        
+        hasClaimedRefund[msg.sender] = true;
+        
+        projectToken.burn(msg.sender, userTokens);
+        usdc.safeTransfer(msg.sender, refundAmount);
+        
+        emit RefundClaimed(msg.sender, refundAmount);
+    }
+    function claimRewards() 
+        external 
+        onlyInvestor 
+        nonReentrant 
+        whenNotPaused 
+    {
+        if (state != ProjectState.Completed) revert InvalidState(ProjectState.Completed, state);
+        
+        uint256 userTokens = projectToken.balanceOf(msg.sender);
+        if (userTokens == 0) revert NoTokens();
+        
+        uint256 totalSupply = projectToken.totalSupply();
+        if (totalSupply == 0) revert NoTokens();
+        
+        // El inversor recibe capital + interés proporcional
+        uint256 totalRepaid = totalPrincipalRepaid + totalInterestRepaid;
+        uint256 totalClaimable = (userTokens * totalRepaid) / totalSupply;
+        uint256 alreadyClaimed = claimedRewards[msg.sender];
+        
+        if (totalClaimable <= alreadyClaimed) revert NoRewards();
+        
+        uint256 pending = totalClaimable - alreadyClaimed;
+        
+        // Fee de plataforma SOLO sobre la porción de interés
+        uint256 interestPortion = (pending * totalInterestRepaid) / totalRepaid;
+        uint256 platformFee = (interestPortion * config.platformFeeBps) / 10000;
+        uint256 userReward = pending - platformFee;
+        
+        claimedRewards[msg.sender] = totalClaimable;
+        platformFeeCollected += platformFee;
+        
+        if (userReward > 0) {
+            usdc.safeTransfer(msg.sender, userReward);
+        }
+        if (platformFee > 0) {
+            usdc.safeTransfer(feeCollector, platformFee);
+        }
+    }
+
+    // Funciones auxiliares (vistas)
+    function getMilestoneCount() external view returns (uint256) {
+        return milestones.length;
+    }
+
+    function getRepaymentCount() external view returns (uint256) {
+        return repayments.length;
+    }
+
+    function getRefundAmount(address investor) 
+        external 
+        view 
+        returns (uint256) 
+    {
+        if (state != ProjectState.Refunding) {
+            return 0;
+        }
+        
+        uint256 userTokens = projectToken.balanceOf(investor);
+        uint256 totalSupply = refundTotalSupplySnapshot; // ← USA SNAPSHOT
+        
+        if (userTokens == 0 || totalSupply == 0) {
+            return 0;
+        }
+        
+        return (userTokens * refundPool) / totalSupply;
+    }
+
+    function getPendingReward(address investor) external view returns (uint256) {
+        revert("Not implemented");
+    }
+    function invest(uint256 amount)
+        external
+        onlyState(ProjectState.Funding)
+        nonReentrant
+        whenNotPaused
+    {
+        if (block.timestamp >= config.fundingDeadline)
+            revert FundingDeadlineExceeded();
+
+        if (!guaranteeDeposited)
+            revert GuaranteeNotDeposited();
+
+        if (totalRaised + amount > config.fundingGoal)
+            revert OverfundingNotAllowed();
+
+        if (amount < MIN_INVESTMENT)
+            revert BelowMinimumInvestment();
+
+        usdc.safeTransferFrom(
+            msg.sender,
+            address(this),
+            amount
+        );
+
+        totalRaised += amount;
+
+        projectToken.mint(msg.sender, amount);
+
+        if (!isInvestor[msg.sender]) {
+            isInvestor[msg.sender] = true;
+            investors.push(msg.sender);
+        }
+
+        emit Invested(msg.sender, amount, amount);
+    }
+    function finalizeFunding()
+        external
+        onlyState(ProjectState.Funding)
+        whenNotPaused
+    {
+        if (totalRaised != config.fundingGoal)
+            revert FundingGoalNotReached();
+
+        state = ProjectState.Active;
+
+        fundingFinalized = true;
+
+        uint8[4] memory percentages = [30, 30, 20, 20];
+
+        uint256 remaining = config.fundingGoal;
+
+        for (uint8 i = 0; i < percentages.length; i++) {
+
+            uint256 milestoneAmount =
+                (config.fundingGoal * percentages[i]) / 100;
+
+            if (i == percentages.length - 1) {
+                milestoneAmount = remaining;
+            }
+
+            milestones.push(
+                Milestone({
+                    percentage: percentages[i],
+                    amount: milestoneAmount,
+                    released: false,
+                    votingActive: false,
+                    extended: false,
+                    voteStart: 0,
+                    voteEnd: 0,
+                    votesFor: 0,
+                    votesAgainst: 0,
+                    totalParticipation: 0,
+                    evidenceURI: "",
+                    nonce:0
+                })
+            );
+
+            remaining -= milestoneAmount;
+        }
+
+        uint256 totalOwed =
+            config.fundingGoal +
+            ((config.fundingGoal * config.interestBps) / 10000);
+
+        uint256 durationSeconds =
+            config.loanDurationInDays * 1 days;
+
+        uint256 intervalSeconds =
+            timeConfig.repaymentInterval;
+
+        uint256 numberOfPayments =
+            durationSeconds / intervalSeconds;
+
+        uint256 paymentAmount =
+            totalOwed / numberOfPayments;
+
+        uint256 remainder =
+            totalOwed -
+            (paymentAmount * numberOfPayments);
+
+        uint256 dueDate =
+            block.timestamp + intervalSeconds;
+
+        for (uint256 i = 0; i < numberOfPayments; i++) {
+
+            uint256 thisPayment = paymentAmount;
+
+            if (i == numberOfPayments - 1) {
+                thisPayment += remainder;
+            }
+
+            repayments.push(
+                Repayment({
+                    dueDate: dueDate,
+                    amount: thisPayment,
+                    paid: false
+                })
+            );
+
+            dueDate += intervalSeconds;
+        }
+
+        emit FundingFinalized(
+            totalRaised,
+            milestones.length
+        );
+    }
+
+    function depositGuarantee()
+        external
+        onlyCreator
+        onlyState(ProjectState.Funding)
+    {
+        if (guaranteeDeposited)
+            revert GuaranteeAlreadyDeposited();
+
+        usdc.safeTransferFrom(
+            msg.sender,
+            address(this),
+            guarantee
+        );
+
+        guaranteeDeposited = true;
+
+        refundPool += guarantee;
+    }
+}
+
+========================================
+FILE: ./contracts/contracts/core/ProjectToken.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+import "../libraries/Errors.sol";
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract ProjectToken is ERC20 {
+    address public project;
+    address public factory;
+
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        address project_,
+        address factory_
+    ) ERC20(name_, symbol_) {
+        project = project_;
+        factory = factory_;
+    }
+
+    modifier onlyProject() {
+        require(msg.sender == project, "Only project");
+        _;
+    }
+
+    function mint(address to, uint256 amount) external onlyProject {
+        _mint(to, amount);
+    }
+
+    function burn(address from, uint256 amount) external onlyProject {
+        _burn(from, amount);
+    }
+
+    // Bloqueo completo de transferencias (solo se permite mint y burn)
+    function _update(
+        address from,
+        address to,
+        uint256 value
+    ) internal override {
+        // Solo se permite si es mint (from == address(0)) o burn (to == address(0))
+        if (!(from == address(0) || to == address(0))) {
+            revert TransferNotAllowed();
+        }
+        super._update(from, to, value);
+    }
+}
+
+========================================
+FILE: ./contracts/contracts/greenFix.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract GreenFix {
+    // 1. Definimos una estructura para el Proyecto
+    struct Proyecto {
+        uint256 id;
+        address creador;
+        string nombre;
+        uint256 objetivoFinanciero;
+        uint256 montoActual;
+        uint256 toneladasCO2;
+        bool completado;
+    }
+
+    // 2. Variables del contrato
+    uint256 public contadorProyectos;
+    mapping(uint256 => Proyecto) public proyectos;
+
+    // 3. Evento para avisar al mundo cuando se crea un proyecto
+    event ProyectoCreado(uint256 id, string nombre, uint256 objetivo);
+
+    // 4. Función para registrar un nuevo bono/proyecto
+    function registrarProyecto(string memory _nombre, uint256 _objetivo, uint256 _co2) public {
+        contadorProyectos++;
+        proyectos[contadorProyectos] = Proyecto(
+            contadorProyectos,
+            msg.sender,
+            _nombre,
+            _objetivo,
+            0,
+            _co2,
+            false
+        );
+        emit ProyectoCreado(contadorProyectos, _nombre, _objetivo);
+    }
+}
+
+========================================
+FILE: ./contracts/contracts/interfaces/IGreenFixFactory.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IGreenFixFactory {
+    function createProject(
+        uint256 fundingGoal,
+        uint256 interestBps,
+        uint256 durationInDays,
+        uint256 repaymentInterval,
+        string calldata metadataURI
+    ) external returns (uint256 projectId);
+
+    function getProject(uint256 projectId) external view returns (
+        address projectAddress,
+        address creator,
+        uint256 fundingGoal,
+        uint256 createdAt,
+        string memory metadataURI
+    );
+}
+
+========================================
+FILE: ./contracts/contracts/interfaces/IGreenFixProject.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IGreenFixProject {
+    // Funding
+    function invest(uint256 amount) external;
+    function cancelFunding() external;
+    function finalizeFunding() external;
+
+    // Milestones & Voting
+    function requestMilestoneRelease(string calldata evidenceURI) external;
+    function vote(uint256 milestoneId, bool support) external;
+    function finalizeVoting(uint256 milestoneId) external;
+
+    // Repayments
+    function makeRepayment(uint256 repaymentIndex) external;
+    function triggerDefaultVote() external;
+
+    // Refunds & Rewards
+    function activateRefunds() external;
+    function claimRefund() external;
+    function claimRewards() external;
+
+    // View helpers
+    function getMilestoneCount() external view returns (uint256);
+    function getRepaymentCount() external view returns (uint256);
+    function getRefundAmount(address investor) external view returns (uint256);
+    function getPendingReward(address investor) external view returns (uint256);
+}
+
+
+========================================
+FILE: ./contracts/contracts/interfaces/IProjectToken.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IProjectToken {
+    function mint(address to, uint256 amount) external;
+    function burn(address from, uint256 amount) external;
+}
+
+========================================
+FILE: ./contracts/contracts/libraries/Errors.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "./ProjectState.sol";
+
+error InvalidState(ProjectState expected, ProjectState current);
+
+error OnlyCreator();
+error OnlyFactory();
+error OnlyInvestor();
+
+error NoActiveVoting();
+
+error TransferNotAllowed();
+error NotEnoughBalance();
+
+error FundingNotComplete();
+
+error MilestoneAlreadyReleased();
+error VotingAlreadyStarted();
+error VotingNotEnded();
+
+error AlreadyVoted();
+error QuorumNotMet();
+
+error PaymentAlreadyMade();
+
+error DefaultVoteActive();
+error NotInDefault();
+
+error RefundAlreadyClaimed();
+
+error GuaranteeAlreadyDeposited();
+error GuaranteeNotDeposited();
+
+error BelowMinimumInvestment();
+
+error InvalidDuration();
+error InvalidRepaymentInterval();
+
+error FundingGoalNotReached();
+error FundingDeadlineExceeded();
+error OverfundingNotAllowed();
+error NoMoreMilestones();
+error VotingAlreadyActive();
+error VotingNotActive();
+error VotingEnded();
+error InvalidMilestone();
+error NoVotingPower();
+error InvalidRepayment();
+error NoOverduePayments();
+error NoTokens();
+error NoRewards();
+error PreviousRepaymentNotPaid();
+
+error NoRefundAvailable();
+
+========================================
+FILE: ./contracts/contracts/libraries/ProjectState.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+enum ProjectState {
+    Funding,
+    Active,
+    Voting,
+    Refunding,
+    Completed,
+    Cancelled,
+    Defaulted
+}
+
+========================================
+FILE: ./contracts/contracts/mocks/MockFailingToken.sol
+========================================
+
+
+========================================
+FILE: ./contracts/contracts/mocks/MockUSDC.sol
+========================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract MockUSDC is ERC20 {
+    constructor() ERC20("Mock USDC", "mUSDC") {}
+
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+}
+
+========================================
+FILE: ./database/00_create_database.sql
+========================================
+/* ============================================================================
+   GreenFix · 00 — Creación de base de datos y usuario
+   ----------------------------------------------------------------------------
+   Ejecutar EN EL SQL SERVER DE WINDOWS con un login administrador (sa).
+   Idempotente: se puede correr varias veces sin error.
+   ========================================================================== */
+
+IF DB_ID('GreenFix') IS NULL
+BEGIN
+    CREATE DATABASE GreenFix;
+    PRINT 'Base de datos GreenFix creada.';
+END
+ELSE
+    PRINT 'Base de datos GreenFix ya existe.';
+GO
+
+-- Login a nivel de servidor (SQL auth). El backend se conecta con este usuario.
+IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'greenfix_user')
+BEGIN
+    CREATE LOGIN greenfix_user WITH PASSWORD = 'GreenFix123!', CHECK_POLICY = OFF;
+    PRINT 'Login greenfix_user creado.';
+END
+GO
+
+USE GreenFix;
+GO
+
+-- Usuario de base de datos mapeado al login y rol de propietario para el MVP.
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'greenfix_user')
+BEGIN
+    CREATE USER greenfix_user FOR LOGIN greenfix_user;
+    ALTER ROLE db_owner ADD MEMBER greenfix_user;
+    PRINT 'Usuario greenfix_user mapeado y agregado a db_owner.';
+END
+GO
+
+
+========================================
+FILE: ./database/01_schema.sql
+========================================
+/* ============================================================================
+   GreenFix · 01 — Esquema de tablas (metadata off-chain)
+   ----------------------------------------------------------------------------
+   La blockchain es la fuente de verdad; estas tablas guardan metadata, historial
+   y auditoría. Los nombres de columnas coinciden con el mapeo de EF Core
+   (GreenFixDbContext) para que el backend funcione sin cambios.
+   Idempotente: crea lo que falte y agrega columnas nuevas con ALTER seguro.
+   ========================================================================== */
+USE GreenFix;
+GO
+
+/* ─────────────── Usuarios ─────────────── */
+IF OBJECT_ID('dbo.Usuarios', 'U') IS NULL
+CREATE TABLE dbo.Usuarios (
+    UsuarioID      INT IDENTITY(1,1) PRIMARY KEY,
+    Nombre         NVARCHAR(100)  NOT NULL,
+    Email          NVARCHAR(150)  NOT NULL,
+    WalletAddress  NVARCHAR(255)  NOT NULL,
+    TipoUsuario    NVARCHAR(20)   NOT NULL,
+    FechaRegistro  DATETIME2      NOT NULL DEFAULT (GETDATE())
+);
+GO
+
+/* ─────────────── Proyectos ─────────────── */
+IF OBJECT_ID('dbo.Proyectos', 'U') IS NULL
+CREATE TABLE dbo.Proyectos (
+    ProyectoID         INT IDENTITY(1,1) PRIMARY KEY,
+    UsuarioID          INT            NOT NULL,
+    NombreProyecto     NVARCHAR(150)  NOT NULL,
+    Descripcion        NVARCHAR(MAX)  NULL,
+    MontoObjetivo      DECIMAL(18,2)  NOT NULL DEFAULT (0),
+    MontoActual        DECIMAL(18,2)  NOT NULL DEFAULT (0),
+    Interes            DECIMAL(5,2)   NOT NULL DEFAULT (0),
+    DuracionMeses      INT            NOT NULL DEFAULT (1),
+    Garantia           DECIMAL(18,2)  NOT NULL DEFAULT (0),
+    ContractAddress    NVARCHAR(42)   NULL,
+    Estado             NVARCHAR(30)   NOT NULL DEFAULT ('Funding'),
+    FechaCreacion      DATETIME2      NOT NULL DEFAULT (GETDATE()),
+    FechaFinalizacion  DATETIME2      NULL,
+    CONSTRAINT FK_Proyectos_Usuarios FOREIGN KEY (UsuarioID)
+        REFERENCES dbo.Usuarios (UsuarioID) ON DELETE CASCADE
+);
+GO
+
+-- Columna nueva: URL de imagen personalizada del proyecto (feature del negociador).
+IF COL_LENGTH('dbo.Proyectos', 'ImagenURL') IS NULL
+    ALTER TABLE dbo.Proyectos ADD ImagenURL NVARCHAR(500) NULL;
+GO
+
+/* ─────────────── Inversiones ─────────────── */
+IF OBJECT_ID('dbo.Inversiones', 'U') IS NULL
+CREATE TABLE dbo.Inversiones (
+    InversionID     INT IDENTITY(1,1) PRIMARY KEY,
+    ProyectoID      INT            NOT NULL,
+    UsuarioID       INT            NOT NULL,
+    MontoInvertido  DECIMAL(18,2)  NOT NULL,
+    TokensAsignados DECIMAL(18,2)  NOT NULL,
+    FechaInversion  DATETIME2      NOT NULL DEFAULT (GETDATE()),
+    CONSTRAINT FK_Inversiones_Proyectos FOREIGN KEY (ProyectoID) REFERENCES dbo.Proyectos (ProyectoID),
+    CONSTRAINT FK_Inversiones_Usuarios  FOREIGN KEY (UsuarioID)  REFERENCES dbo.Usuarios (UsuarioID)
+);
+GO
+
+/* ─────────────── Milestones ─────────────── */
+IF OBJECT_ID('dbo.Milestones', 'U') IS NULL
+CREATE TABLE dbo.Milestones (
+    MilestoneID         INT IDENTITY(1,1) PRIMARY KEY,
+    ProyectoID          INT            NOT NULL,
+    NumeroMilestone     INT            NOT NULL,
+    Porcentaje          INT            NOT NULL,
+    Monto               DECIMAL(18,2)  NOT NULL,
+    Liberado            BIT            NOT NULL DEFAULT (0),
+    EvidenciaURL        NVARCHAR(500)  NULL,
+    FechaInicioVotacion DATETIME2      NULL,
+    FechaFinVotacion    DATETIME2      NULL,
+    Estado              NVARCHAR(20)   NOT NULL DEFAULT ('Pendiente'),
+    CONSTRAINT FK_Milestones_Proyectos FOREIGN KEY (ProyectoID) REFERENCES dbo.Proyectos (ProyectoID)
+);
+GO
+
+/* ─────────────── Votos ─────────────── */
+IF OBJECT_ID('dbo.Votos', 'U') IS NULL
+CREATE TABLE dbo.Votos (
+    VotoID      INT IDENTITY(1,1) PRIMARY KEY,
+    MilestoneID INT            NOT NULL,
+    UsuarioID   INT            NOT NULL,
+    VotoValor   BIT            NOT NULL,
+    PesoVoto    DECIMAL(18,2)  NOT NULL,
+    FechaVoto   DATETIME2      NOT NULL DEFAULT (GETDATE()),
+    CONSTRAINT FK_Votos_Milestones FOREIGN KEY (MilestoneID) REFERENCES dbo.Milestones (MilestoneID),
+    CONSTRAINT FK_Votos_Usuarios   FOREIGN KEY (UsuarioID)   REFERENCES dbo.Usuarios (UsuarioID)
+);
+GO
+
+/* ─────────────── Pagos ─────────────── */
+IF OBJECT_ID('dbo.Pagos', 'U') IS NULL
+CREATE TABLE dbo.Pagos (
+    PagoID       INT IDENTITY(1,1) PRIMARY KEY,
+    ProyectoID   INT            NOT NULL,
+    NumeroCuota  INT            NOT NULL,
+    MontoPago    DECIMAL(18,2)  NOT NULL,
+    FechaLimite  DATETIME2      NOT NULL,
+    Pagado       BIT            NOT NULL DEFAULT (0),
+    FechaPago    DATETIME2      NULL,
+    CONSTRAINT FK_Pagos_Proyectos FOREIGN KEY (ProyectoID) REFERENCES dbo.Proyectos (ProyectoID)
+);
+GO
+
+/* ─────────────── Reembolsos ─────────────── */
+IF OBJECT_ID('dbo.Reembolsos', 'U') IS NULL
+CREATE TABLE dbo.Reembolsos (
+    ReembolsoID     INT IDENTITY(1,1) PRIMARY KEY,
+    ProyectoID      INT            NOT NULL,
+    UsuarioID       INT            NOT NULL,
+    MontoReembolso  DECIMAL(18,2)  NOT NULL,
+    FechaReembolso  DATETIME2      NOT NULL DEFAULT (GETDATE()),
+    CONSTRAINT FK_Reembolsos_Proyectos FOREIGN KEY (ProyectoID) REFERENCES dbo.Proyectos (ProyectoID),
+    CONSTRAINT FK_Reembolsos_Usuarios  FOREIGN KEY (UsuarioID)  REFERENCES dbo.Usuarios (UsuarioID)
+);
+GO
+
+/* ─────────────── Recompensas ─────────────── */
+IF OBJECT_ID('dbo.Recompensas', 'U') IS NULL
+CREATE TABLE dbo.Recompensas (
+    RecompensaID   INT IDENTITY(1,1) PRIMARY KEY,
+    ProyectoID     INT            NOT NULL,
+    UsuarioID      INT            NOT NULL,
+    MontoGanancia  DECIMAL(18,2)  NOT NULL,
+    Reclamada      BIT            NOT NULL DEFAULT (0),
+    FechaReclamo   DATETIME2      NULL,
+    CONSTRAINT FK_Recompensas_Proyectos FOREIGN KEY (ProyectoID) REFERENCES dbo.Proyectos (ProyectoID),
+    CONSTRAINT FK_Recompensas_Usuarios  FOREIGN KEY (UsuarioID)  REFERENCES dbo.Usuarios (UsuarioID)
+);
+GO
+
+/* ─────────────── Evidencias ─────────────── */
+IF OBJECT_ID('dbo.Evidencias', 'U') IS NULL
+CREATE TABLE dbo.Evidencias (
+    EvidenciaID  INT IDENTITY(1,1) PRIMARY KEY,
+    ProyectoID   INT            NOT NULL,
+    Titulo       NVARCHAR(200)  NULL,
+    ArchivoURL   NVARCHAR(500)  NOT NULL,
+    TipoArchivo  NVARCHAR(50)   NULL,
+    FechaSubida  DATETIME2      NOT NULL DEFAULT (GETDATE()),
+    CONSTRAINT FK_Evidencias_Proyectos FOREIGN KEY (ProyectoID) REFERENCES dbo.Proyectos (ProyectoID)
+);
+GO
+
+/* ─────────────── AuditoriaProyectos (NUEVA: historial/auditoría) ───────────────
+   Registra creación y cada cambio de estado de un proyecto. La alimentan el
+   stored procedure de registro y el trigger de cambio de estado.
+*/
+IF OBJECT_ID('dbo.AuditoriaProyectos', 'U') IS NULL
+CREATE TABLE dbo.AuditoriaProyectos (
+    AuditoriaID      INT IDENTITY(1,1) PRIMARY KEY,
+    ProyectoID       INT            NOT NULL,
+    ContractAddress  NVARCHAR(42)   NULL,
+    EstadoAnterior   NVARCHAR(30)   NULL,
+    EstadoNuevo      NVARCHAR(30)   NULL,
+    MontoRecaudado   DECIMAL(18,2)  NULL,
+    Accion           NVARCHAR(50)   NOT NULL,   -- 'Creacion' | 'CambioEstado' | 'Completado'
+    Detalle          NVARCHAR(500)  NULL,
+    FechaEvento      DATETIME2      NOT NULL DEFAULT (SYSUTCDATETIME())
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Auditoria_Proyecto' AND object_id = OBJECT_ID('dbo.AuditoriaProyectos'))
+    CREATE NONCLUSTERED INDEX IX_Auditoria_Proyecto
+        ON dbo.AuditoriaProyectos (ProyectoID, FechaEvento);
+GO
+
+PRINT 'Esquema GreenFix listo.';
+GO
+
+
+========================================
+FILE: ./database/02_functions.sql
+========================================
+/* ============================================================================
+   GreenFix · 02 — Funciones (estadísticas rápidas)
+   ----------------------------------------------------------------------------
+   CREATE OR ALTER → idempotente (SQL Server 2016 SP1+).
+   ========================================================================== */
+USE GreenFix;
+GO
+
+/* fn_TotalRecaudadoLocal: total invertido (off-chain) registrado para un proyecto. */
+CREATE OR ALTER FUNCTION dbo.fn_TotalRecaudadoLocal (@ProyectoID INT)
+RETURNS DECIMAL(18,2)
+AS
+BEGIN
+    DECLARE @total DECIMAL(18,2);
+    SELECT @total = ISNULL(SUM(MontoInvertido), 0)
+    FROM dbo.Inversiones
+    WHERE ProyectoID = @ProyectoID;
+    RETURN @total;
+END;
+GO
+
+/* fn_PorcentajeFinanciado: % financiado respecto a la meta del proyecto. */
+CREATE OR ALTER FUNCTION dbo.fn_PorcentajeFinanciado (@ProyectoID INT)
+RETURNS DECIMAL(5,2)
+AS
+BEGIN
+    DECLARE @objetivo DECIMAL(18,2), @recaudado DECIMAL(18,2);
+
+    SELECT @objetivo = MontoObjetivo FROM dbo.Proyectos WHERE ProyectoID = @ProyectoID;
+    SET @recaudado = dbo.fn_TotalRecaudadoLocal(@ProyectoID);
+
+    IF @objetivo IS NULL OR @objetivo = 0 RETURN 0;
+    RETURN CAST(ROUND((@recaudado / @objetivo) * 100, 2) AS DECIMAL(5,2));
+END;
+GO
+
+/* fn_NumeroInversores: cantidad de inversores únicos de un proyecto. */
+CREATE OR ALTER FUNCTION dbo.fn_NumeroInversores (@ProyectoID INT)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @n INT;
+    SELECT @n = COUNT(DISTINCT UsuarioID) FROM dbo.Inversiones WHERE ProyectoID = @ProyectoID;
+    RETURN ISNULL(@n, 0);
+END;
+GO
+
+/* fn_EstadisticasGlobales: una fila con métricas globales de la plataforma. */
+CREATE OR ALTER FUNCTION dbo.fn_EstadisticasGlobales ()
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        (SELECT COUNT(*) FROM dbo.Proyectos)                                   AS TotalProyectos,
+        (SELECT COUNT(*) FROM dbo.Proyectos WHERE Estado = 'Completed')        AS ProyectosCompletados,
+        (SELECT COUNT(*) FROM dbo.Proyectos WHERE Estado = 'Funding')          AS ProyectosEnFunding,
+        (SELECT ISNULL(SUM(MontoObjetivo), 0) FROM dbo.Proyectos)              AS CapitalSolicitado,
+        (SELECT ISNULL(SUM(MontoInvertido), 0) FROM dbo.Inversiones)           AS TotalRecaudado,
+        (SELECT COUNT(DISTINCT UsuarioID) FROM dbo.Inversiones)                AS InversoresActivos
+);
+GO
+
+PRINT 'Funciones GreenFix creadas.';
+GO
+
+
+========================================
+FILE: ./database/03_stored_procedures.sql
+========================================
+/* ============================================================================
+   GreenFix · 03 — Stored Procedures (registro y auditoría)
+   ----------------------------------------------------------------------------
+   CREATE OR ALTER → idempotente.
+   ========================================================================== */
+USE GreenFix;
+GO
+
+/* usp_RegistrarProyecto
+   Inserta un proyecto y registra la auditoría 'Creacion' en una sola transacción.
+   Devuelve la fila del proyecto recién creado. */
+CREATE OR ALTER PROCEDURE dbo.usp_RegistrarProyecto
+    @UsuarioID       INT,
+    @NombreProyecto  NVARCHAR(150),
+    @Descripcion     NVARCHAR(MAX) = NULL,
+    @MontoObjetivo   DECIMAL(18,2),
+    @Interes         DECIMAL(5,2)  = 0,
+    @DuracionMeses   INT           = 1,
+    @Garantia        DECIMAL(18,2) = 0,
+    @ContractAddress NVARCHAR(42)  = NULL,
+    @ImagenURL       NVARCHAR(500) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        INSERT INTO dbo.Proyectos
+            (UsuarioID, NombreProyecto, Descripcion, MontoObjetivo, MontoActual,
+             Interes, DuracionMeses, Garantia, ContractAddress, Estado, ImagenURL)
+        VALUES
+            (@UsuarioID, @NombreProyecto, @Descripcion, @MontoObjetivo, 0,
+             @Interes, @DuracionMeses, @Garantia, @ContractAddress, 'Funding', @ImagenURL);
+
+        DECLARE @NuevoID INT = SCOPE_IDENTITY();
+
+        INSERT INTO dbo.AuditoriaProyectos
+            (ProyectoID, ContractAddress, EstadoAnterior, EstadoNuevo, MontoRecaudado, Accion, Detalle)
+        VALUES
+            (@NuevoID, @ContractAddress, NULL, 'Funding', 0, 'Creacion',
+             CONCAT('Proyecto "', @NombreProyecto, '" creado por usuario ', @UsuarioID));
+
+        COMMIT TRANSACTION;
+
+        SELECT * FROM dbo.Proyectos WHERE ProyectoID = @NuevoID;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
+GO
+
+/* usp_ActualizarEstadoProyecto
+   Actualiza estado y/o monto recaudado de un proyecto. El trigger de auditoría
+   registra automáticamente el cambio de estado. */
+CREATE OR ALTER PROCEDURE dbo.usp_ActualizarEstadoProyecto
+    @ProyectoID  INT,
+    @NuevoEstado NVARCHAR(30)  = NULL,
+    @MontoActual DECIMAL(18,2) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE dbo.Proyectos
+    SET Estado      = COALESCE(@NuevoEstado, Estado),
+        MontoActual = COALESCE(@MontoActual, MontoActual)
+    WHERE ProyectoID = @ProyectoID;
+
+    SELECT * FROM dbo.Proyectos WHERE ProyectoID = @ProyectoID;
+END;
+GO
+
+/* usp_HistorialProyecto
+   Devuelve la línea de tiempo de auditoría de un proyecto. */
+CREATE OR ALTER PROCEDURE dbo.usp_HistorialProyecto
+    @ProyectoID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT AuditoriaID, ProyectoID, ContractAddress, EstadoAnterior, EstadoNuevo,
+           MontoRecaudado, Accion, Detalle, FechaEvento
+    FROM dbo.AuditoriaProyectos
+    WHERE ProyectoID = @ProyectoID
+    ORDER BY FechaEvento ASC, AuditoriaID ASC;
+END;
+GO
+
+PRINT 'Stored procedures GreenFix creados.';
+GO
+
+
+========================================
+FILE: ./database/04_triggers.sql
+========================================
+/* ============================================================================
+   GreenFix · 04 — Triggers (auditoría de cambios de estado)
+   ----------------------------------------------------------------------------
+   CREATE OR ALTER → idempotente.
+   ========================================================================== */
+USE GreenFix;
+GO
+
+/* trg_Proyectos_AuditarEstado
+   AFTER UPDATE: cuando cambia el Estado de un proyecto, registra una fila en
+   AuditoriaProyectos. Si el nuevo estado es 'Completed', además marca la
+   FechaFinalizacion y usa la acción 'Completado'.
+
+   Maneja actualizaciones por lotes (varias filas) vía inserted/deleted.
+   La recursión directa de triggers está desactivada por defecto en SQL Server,
+   y el UPDATE de FechaFinalizacion se acota a la transición real, evitando
+   cualquier ciclo. */
+CREATE OR ALTER TRIGGER dbo.trg_Proyectos_AuditarEstado
+ON dbo.Proyectos
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Solo actuamos si la columna Estado fue parte del UPDATE.
+    IF NOT UPDATE(Estado) RETURN;
+
+    -- 1) Auditar cada proyecto cuyo estado realmente cambió.
+    INSERT INTO dbo.AuditoriaProyectos
+        (ProyectoID, ContractAddress, EstadoAnterior, EstadoNuevo, MontoRecaudado, Accion, Detalle)
+    SELECT
+        i.ProyectoID,
+        i.ContractAddress,
+        d.Estado,
+        i.Estado,
+        i.MontoActual,
+        CASE WHEN i.Estado = 'Completed' THEN 'Completado' ELSE 'CambioEstado' END,
+        CONCAT('Estado: ', d.Estado, ' -> ', i.Estado)
+    FROM inserted i
+    INNER JOIN deleted d ON i.ProyectoID = d.ProyectoID
+    WHERE ISNULL(i.Estado, '') <> ISNULL(d.Estado, '');
+
+    -- 2) Al pasar a 'Completed', fijar FechaFinalizacion (solo en la transición).
+    UPDATE p
+    SET p.FechaFinalizacion = SYSUTCDATETIME()
+    FROM dbo.Proyectos p
+    INNER JOIN inserted i ON p.ProyectoID = i.ProyectoID
+    INNER JOIN deleted  d ON p.ProyectoID = d.ProyectoID
+    WHERE i.Estado = 'Completed'
+      AND ISNULL(d.Estado, '') <> 'Completed'
+      AND p.FechaFinalizacion IS NULL;
+END;
+GO
+
+PRINT 'Triggers GreenFix creados.';
+GO
+
+
+========================================
+FILE: ./frontend/src/blockchain/contractsConfig.js
+========================================
+// ⚠️ Archivo generado automáticamente por contracts/scripts/deploy.cjs
+// No editar a mano: se sobreescribe en cada despliegue local.
+export const CONTRACTS = {
+  FACTORY_ADDRESS: "0x202CCe504e04bEd6fC0521238dDf04Bc9E8E15aB",
+  USDC_ADDRESS: "0xD8a5a9b31c3C0232E196d518E89Fd8bF83AcAd43",
+};
+
+export const NETWORK_INFO = {
+  chainId: "0x7a69",
+  chainName: "Hardhat Local",
+  nativeCurrency: {
+    name: "Ethereum",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: ["http://127.0.0.1:8545"],
+  blockExplorerUrls: [],
+};
+
+
+========================================
+FILE: ./frontend/src/blockchain/web3Service.js
+========================================
+import { ethers } from "ethers";
+import { NETWORK_INFO, CONTRACTS } from "./contractsConfig";
+import GreenFixFactoryABI from "./abis/GreenFixFactory.json";
+import GreenFixProjectABI from "./abis/GreenFixProject.json";
+import MockUSDCABI from "./abis/MockUSDC.json";
+
+// USDC y el token del proyecto usan 6 decimales en el MVP.
+export const USDC_DECIMALS = 6;
+
+// El orden DEBE coincidir con libraries/ProjectState.sol
+export const STATE_LABELS = [
+  "Funding",
+  "Active",
+  "Voting",
+  "Refunding",
+  "Completed",
+  "Cancelled",
+  "Defaulted",
+];
+
+const FACTORY_ABI = GreenFixFactoryABI.abi;
+const PROJECT_ABI = GreenFixProjectABI.abi;
+const USDC_ABI = MockUSDCABI.abi;
+
+// ─────────────────────────── Helpers de unidades ───────────────────────────
+export const toUSDC = (value) => ethers.parseUnits(String(value), USDC_DECIMALS);
+export const fromUSDC = (value) => Number(ethers.formatUnits(value, USDC_DECIMALS));
+
+// ─────────────────────────── Providers / Signer ───────────────────────────
+function hasWallet() {
+  return typeof window !== "undefined" && Boolean(window.ethereum);
+}
+
+/**
+ * Provider de SOLO LECTURA: pega directo al nodo local por RPC.
+ * No requiere MetaMask, así el dashboard puede cargar proyectos sin wallet.
+ */
+export function getReadProvider() {
+  return new ethers.JsonRpcProvider(NETWORK_INFO.rpcUrls[0]);
+}
+
+export async function getProvider() {
+  if (!hasWallet()) throw new Error("MetaMask no está instalado");
+  return new ethers.BrowserProvider(window.ethereum);
+}
+
+export async function getSigner() {
+  const provider = await getProvider();
+  return provider.getSigner();
+}
+
+/**
+ * Asegura que MetaMask esté en la red local de Hardhat; si no existe, la agrega.
+ */
+export async function ensureNetwork() {
+  if (!hasWallet()) throw new Error("MetaMask no está instalado");
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: NETWORK_INFO.chainId }],
+    });
+  } catch (switchError) {
+    // 4902 = la cadena no está agregada en MetaMask → la añadimos.
+    if (switchError.code === 4902 || switchError.code === -32603) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: NETWORK_INFO.chainId,
+            chainName: NETWORK_INFO.chainName,
+            nativeCurrency: NETWORK_INFO.nativeCurrency,
+            rpcUrls: NETWORK_INFO.rpcUrls,
+            blockExplorerUrls: NETWORK_INFO.blockExplorerUrls,
+          },
+        ],
+      });
+    } else {
+      throw switchError;
+    }
+  }
+}
+
+export async function connectMetaMask() {
+  if (!hasWallet()) throw new Error("MetaMask no está instalado");
+  const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+  await ensureNetwork();
+  return accounts[0];
+}
+
+// ─────────────────────────── Fábricas de contratos ───────────────────────────
+async function factoryWithSigner() {
+  const signer = await getSigner();
+  return new ethers.Contract(CONTRACTS.FACTORY_ADDRESS, FACTORY_ABI, signer);
+}
+function factoryReadOnly() {
+  return new ethers.Contract(CONTRACTS.FACTORY_ADDRESS, FACTORY_ABI, getReadProvider());
+}
+async function usdcWithSigner() {
+  const signer = await getSigner();
+  return new ethers.Contract(CONTRACTS.USDC_ADDRESS, USDC_ABI, signer);
+}
+function usdcReadOnly() {
+  return new ethers.Contract(CONTRACTS.USDC_ADDRESS, USDC_ABI, getReadProvider());
+}
+async function projectWithSigner(address) {
+  const signer = await getSigner();
+  return new ethers.Contract(address, PROJECT_ABI, signer);
+}
+function projectReadOnly(address) {
+  return new ethers.Contract(address, PROJECT_ABI, getReadProvider());
+}
+
+// ─────────────────────────── USDC (faucet / balances) ───────────────────────────
+export async function getUsdcBalance(address) {
+  if (!address) return 0;
+  const usdc = usdcReadOnly();
+  return fromUSDC(await usdc.balanceOf(address));
+}
+
+/** Faucet de demo: acuña USDC de prueba a la cuenta conectada. */
+export async function mintUsdc(amount) {
+  const usdc = await usdcWithSigner();
+  const signer = await getSigner();
+  const to = await signer.getAddress();
+  const tx = await usdc.mint(to, toUSDC(amount));
+  await tx.wait();
+  return tx.hash;
+}
+
+async function ensureAllowance(usdc, owner, spender, needed) {
+  const current = await usdc.allowance(owner, spender);
+  if (current < needed) {
+    const tx = await usdc.approve(spender, needed);
+    await tx.wait();
+  }
+}
+
+// ─────────────────────────── Crear proyecto ───────────────────────────
+/**
+ * Crea el proyecto on-chain y deposita la garantía del 5%.
+ * @returns {{ txHash: string, projectAddress: string }}
+ */
+export async function createProject(fundingGoal, interestBps, durationDays, repaymentInterval, metadataURI) {
+  const factory = await factoryWithSigner();
+  const usdc = await usdcWithSigner();
+  const signer = await getSigner();
+  const owner = await signer.getAddress();
+
+  const goal = toUSDC(fundingGoal);
+  const guarantee = (goal * 5n) / 100n;
+
+  // 1. Crear proyecto
+  const txCreate = await factory.createProject(
+    goal,
+    interestBps,
+    durationDays,
+    repaymentInterval,
+    metadataURI
+  );
+  const receipt = await txCreate.wait();
+
+  // 2. Extraer la dirección del proyecto del evento ProjectCreated
+  let projectAddress = null;
+  for (const log of receipt.logs) {
+    try {
+      const parsed = factory.interface.parseLog(log);
+      if (parsed && parsed.name === "ProjectCreated") {
+        projectAddress = parsed.args[2];
+        break;
+      }
+    } catch {
+      /* log de otro contrato, ignorar */
+    }
+  }
+  if (!projectAddress) throw new Error("No se pudo obtener la dirección del proyecto");
+
+  // 3. Depositar garantía (approve al proyecto + depositGuarantee)
+  const project = new ethers.Contract(projectAddress, PROJECT_ABI, signer);
+  await ensureAllowance(usdc, owner, projectAddress, guarantee);
+  const txGuarantee = await project.depositGuarantee();
+  await txGuarantee.wait();
+
+  return { txHash: receipt.hash, projectAddress };
+}
+
+// ─────────────────────────── Acciones de inversor ───────────────────────────
+export async function invest(projectAddress, amount) {
+  const signer = await getSigner();
+  const owner = await signer.getAddress();
+  const project = await projectWithSigner(projectAddress);
+  const usdc = await usdcWithSigner();
+
+  const parsed = toUSDC(amount);
+  await ensureAllowance(usdc, owner, projectAddress, parsed);
+  const tx = await project.invest(parsed);
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function vote(projectAddress, milestoneId, support) {
+  const project = await projectWithSigner(projectAddress);
+  const tx = await project.vote(milestoneId, support);
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function claimRewards(projectAddress) {
+  const project = await projectWithSigner(projectAddress);
+  const tx = await project.claimRewards();
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function claimRefund(projectAddress) {
+  const project = await projectWithSigner(projectAddress);
+  const tx = await project.claimRefund();
+  await tx.wait();
+  return tx.hash;
+}
+
+// ─────────────────────────── Acciones de creador ───────────────────────────
+export async function finalizeFunding(projectAddress) {
+  const project = await projectWithSigner(projectAddress);
+  const tx = await project.finalizeFunding();
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function requestMilestoneRelease(projectAddress, evidenceURI) {
+  const project = await projectWithSigner(projectAddress);
+  const tx = await project.requestMilestoneRelease(evidenceURI);
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function finalizeVoting(projectAddress, milestoneId) {
+  const project = await projectWithSigner(projectAddress);
+  const tx = await project.finalizeVoting(milestoneId);
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function makeRepayment(projectAddress, repaymentIndex) {
+  const signer = await getSigner();
+  const owner = await signer.getAddress();
+  const project = await projectWithSigner(projectAddress);
+  const usdc = await usdcWithSigner();
+
+  const repayment = await project.repayments(repaymentIndex);
+  await ensureAllowance(usdc, owner, projectAddress, repayment.amount);
+  const tx = await project.makeRepayment(repaymentIndex);
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function cancelFunding(projectAddress) {
+  const project = await projectWithSigner(projectAddress);
+  const tx = await project.cancelFunding();
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function activateRefunds(projectAddress) {
+  const project = await projectWithSigner(projectAddress);
+  const tx = await project.activateRefunds();
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function triggerDefaultVote(projectAddress) {
+  const project = await projectWithSigner(projectAddress);
+  const tx = await project.triggerDefaultVote();
+  await tx.wait();
+  return tx.hash;
+}
+
+// ─────────────────────────── Lecturas on-chain ───────────────────────────
+/**
+ * Lee el estado completo de un proyecto desde la cadena.
+ */
+export async function getProjectSummary(projectAddress) {
+  const project = projectReadOnly(projectAddress);
+
+  const [stateRaw, totalRaised, currentMilestone, creator, guaranteeDeposited, config, tokenAddress] =
+    await Promise.all([
+      project.state(),
+      project.totalRaised(),
+      project.currentMilestone(),
+      project.creator(),
+      project.guaranteeDeposited(),
+      project.config(),
+      project.projectToken(),
+    ]);
+
+  // Supply total del token del proyecto = total de USDC invertido (mint 1:1).
+  // Se usa para calcular el quórum y el peso proporcional de cada voto (ballenas).
+  const tokenContract = new ethers.Contract(
+    tokenAddress,
+    ["function totalSupply() view returns (uint256)"],
+    getReadProvider()
+  );
+  const tokenTotalSupply = fromUSDC(await tokenContract.totalSupply());
+
+  const milestoneCount = Number(await project.getMilestoneCount());
+  const milestones = [];
+  for (let i = 0; i < milestoneCount; i++) {
+    const m = await project.milestones(i);
+    milestones.push({
+      id: i,
+      percentage: Number(m.percentage),
+      amount: fromUSDC(m.amount),
+      released: m.released,
+      votingActive: m.votingActive,
+      voteStart: Number(m.voteStart),
+      voteEnd: Number(m.voteEnd),
+      votesFor: fromUSDC(m.votesFor),
+      votesAgainst: fromUSDC(m.votesAgainst),
+      evidenceURI: m.evidenceURI,
+    });
+  }
+
+  const repaymentCount = Number(await project.getRepaymentCount());
+  const repayments = [];
+  for (let i = 0; i < repaymentCount; i++) {
+    const r = await project.repayments(i);
+    repayments.push({
+      id: i,
+      dueDate: Number(r.dueDate),
+      amount: fromUSDC(r.amount),
+      paid: r.paid,
+    });
+  }
+
+  const stateIndex = Number(stateRaw);
+  const fundingGoal = fromUSDC(config.fundingGoal);
+
+  return {
+    contractAddress: projectAddress,
+    state: stateIndex,
+    status: STATE_LABELS[stateIndex] || "Desconocido",
+    creator,
+    guaranteeDeposited,
+    goal: fundingGoal,
+    raised: fromUSDC(totalRaised),
+    interest: Number(config.interestBps) / 100,
+    currentMilestone: Number(currentMilestone),
+    tokenTotalSupply,
+    milestones,
+    repayments,
+  };
+}
+
+/**
+ * Devuelve los datos del usuario respecto a un proyecto (tokens, claims).
+ */
+export async function getInvestorPosition(projectAddress, account) {
+  if (!account) return { tokens: 0, isInvestor: false, hasClaimedRefund: false };
+  const project = projectReadOnly(projectAddress);
+  const token = await project.projectToken();
+  const tokenContract = new ethers.Contract(
+    token,
+    ["function balanceOf(address) view returns (uint256)"],
+    getReadProvider()
+  );
+  const [balance, isInvestor, hasClaimedRefund] = await Promise.all([
+    tokenContract.balanceOf(account),
+    project.isInvestor(account),
+    project.hasClaimedRefund(account),
+  ]);
+  return {
+    tokens: fromUSDC(balance),
+    isInvestor,
+    hasClaimedRefund,
+  };
+}
+
+/**
+ * Lista todos los proyectos creados en el Factory con su estado on-chain.
+ */
+export async function getAllProjects() {
+  const factory = factoryReadOnly();
+  const count = Number(await factory.projectCount());
+
+  const projects = [];
+  for (let id = 1; id <= count; id++) {
+    try {
+      const info = await factory.getProject(id);
+      const [projectAddress, creator, fundingGoal, createdAt, metadataURI] = info;
+      const summary = await getProjectSummary(projectAddress);
+      projects.push({
+        projectId: id,
+        contractAddress: projectAddress,
+        creator,
+        createdAt: Number(createdAt),
+        metadataURI,
+        ...summary,
+      });
+    } catch (e) {
+      console.warn(`No se pudo leer el proyecto ${id}:`, e.message);
+    }
+  }
+  return projects;
+}
+
+
+========================================
+FILE: ./frontend/src/context/AppContext.jsx
+========================================
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import {
+  connectMetaMask,
+  getUsdcBalance,
+  mintUsdc,
+  getAllProjects,
+  createProject as createProjectOnChain,
+  invest as investOnChain,
+  vote as voteOnChain,
+  finalizeFunding as finalizeFundingOnChain,
+  requestMilestoneRelease as requestMilestoneReleaseOnChain,
+  finalizeVoting as finalizeVotingOnChain,
+  makeRepayment as makeRepaymentOnChain,
+  claimRewards as claimRewardsOnChain,
+  claimRefund as claimRefundOnChain,
+} from "../blockchain/web3Service";
+
+const AppContext = createContext();
+
+const BACKEND_URL = "http://localhost:5029";
+
+// Imágenes de relleno para que las tarjetas se vean bien (la metadata real
+// vive en el backend / IPFS; esto es solo presentación).
+const FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1442512595331-e89e73853f31?auto=format&fit=crop&q=80&w=900",
+  "https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&q=80&w=900",
+  "https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&q=80&w=900",
+  "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=900",
+];
+
+// Usuarios demo (no hay backend de auth en el MVP: el login solo elige el rol).
+const users = [
+  { id: 1, name: "Maycol", email: "inversor@gmail.com", password: "12345", roles: ["investor"] },
+  { id: 2, name: "Negociador GreenFix", email: "negociador@gmail.com", password: "12345", roles: ["creator"] },
+];
+
+function getSaved(key, fallback) {
+  const saved = localStorage.getItem(key);
+  return saved ? JSON.parse(saved) : fallback;
+}
+
+function calculateInterestBps(goal) {
+  const amount = Number(goal);
+  if (amount <= 1000) return 600; // 6%
+  if (amount <= 2500) return 800; // 8%
+  return 1000; // 10%
+}
+
+function milestoneStatus(milestone, index, currentMilestone) {
+  if (milestone.released || index < currentMilestone) return "Completed";
+  if (milestone.votingActive) return "Voting";
+  if (index === currentMilestone) return "Pending";
+  return "Locked";
+}
+
+/**
+ * Convierte el resumen on-chain en el modelo que consumen las vistas,
+ * enriquecido con la metadata del backend cuando está disponible.
+ */
+function buildProjectModel(chainProject, metadataByAddress, index) {
+  const meta = metadataByAddress[chainProject.contractAddress.toLowerCase()] || {};
+  const nameFromUri = (chainProject.metadataURI || "").replace("ipfs://", "");
+  // Imagen personalizada del negociador; solo se usa un fallback si no hay ninguna.
+  const customImage = meta.imagenURL || meta.imagenUrl;
+
+  return {
+    id: chainProject.contractAddress,
+    projectId: chainProject.projectId,
+    contractAddress: chainProject.contractAddress,
+    creator: chainProject.creator,
+    name: meta.nombre || nameFromUri || `Proyecto #${chainProject.projectId}`,
+    description: meta.descripcion || "Proyecto de financiamiento descentralizado en GreenFix.",
+    image: customImage || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length],
+    goal: chainProject.goal,
+    raised: chainProject.raised,
+    interest: chainProject.interest,
+    status: chainProject.status,
+    state: chainProject.state,
+    guaranteeDeposited: chainProject.guaranteeDeposited,
+    currentMilestone: chainProject.currentMilestone,
+    tokenTotalSupply: chainProject.tokenTotalSupply,
+    repayments: chainProject.repayments,
+    milestones: chainProject.milestones.map((m, i) => ({
+      id: m.id,
+      title: `Hito ${i + 1}`,
+      description: `Liberación del ${m.percentage}% del capital (${m.amount} USDC).`,
+      percentage: m.percentage,
+      status: milestoneStatus(m, i, chainProject.currentMilestone),
+      released: m.released,
+      votingActive: m.votingActive,
+      votesFor: m.votesFor,
+      votesAgainst: m.votesAgainst,
+      evidenceURI: m.evidenceURI,
+    })),
+  };
+}
+
+export function AppProvider({ children }) {
+  const [account, setAccount] = useState(() => getSaved("greenfix-account", ""));
+  const [usdcBalance, setUsdcBalance] = useState(0);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [txPending, setTxPending] = useState(false);
+
+  const [user, setUser] = useState(() => getSaved("greenfix-user", null));
+  const [authError, setAuthError] = useState("");
+  const [loginOpen, setLoginOpen] = useState(false);
+
+  const [activeView, setActiveView] = useState(() => getSaved("greenfix-active-view", "home"));
+  const [selectedId, setSelectedId] = useState(() => getSaved("greenfix-selected-id", null));
+
+  // KYC (simulado, local). Mapa { [usuarioId]: true }.
+  const [kycMap, setKycMap] = useState(() => getSaved("greenfix-kyc", {}));
+  const [kycModalOpen, setKycModalOpen] = useState(false);
+
+  const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+
+  // ─────────────── Persistencia ligera de sesión / navegación ───────────────
+  useEffect(() => { localStorage.setItem("greenfix-user", JSON.stringify(user)); }, [user]);
+  useEffect(() => { localStorage.setItem("greenfix-account", JSON.stringify(account)); }, [account]);
+  useEffect(() => { localStorage.setItem("greenfix-active-view", JSON.stringify(activeView)); }, [activeView]);
+  useEffect(() => { localStorage.setItem("greenfix-selected-id", JSON.stringify(selectedId)); }, [selectedId]);
+  useEffect(() => { localStorage.setItem("greenfix-kyc", JSON.stringify(kycMap)); }, [kycMap]);
+
+  // ─────────────── Carga de proyectos desde la cadena ───────────────
+  const loadProjects = useCallback(async () => {
+    setProjectsLoading(true);
+    try {
+      const chainProjects = await getAllProjects();
+
+      // Metadata del backend (opcional, tolerante a que esté caído).
+      let metadataByAddress = {};
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/proyectos`);
+        if (res.ok) {
+          const data = await res.json();
+          metadataByAddress = data.reduce((acc, p) => {
+            if (p.contractAddress) acc[p.contractAddress.toLowerCase()] = p;
+            return acc;
+          }, {});
+        }
+      } catch {
+        /* backend no disponible: seguimos solo con datos on-chain */
+      }
+
+      setProjects(chainProjects.map((p, i) => buildProjectModel(p, metadataByAddress, i)));
+    } catch (error) {
+      console.error("Error cargando proyectos on-chain:", error);
+      setProjects([]);
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  // Refrescar saldo USDC cuando cambia la cuenta.
+  const refreshBalance = useCallback(async (address) => {
+    try {
+      setUsdcBalance(await getUsdcBalance(address));
+    } catch {
+      setUsdcBalance(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (account) refreshBalance(account);
+  }, [account, refreshBalance]);
+
+  // Reaccionar a cambios de cuenta en MetaMask.
+  useEffect(() => {
+    if (!window.ethereum) return;
+    const handler = (accounts) => setAccount(accounts[0] || "");
+    window.ethereum.on?.("accountsChanged", handler);
+    return () => window.ethereum.removeListener?.("accountsChanged", handler);
+  }, []);
+
+  // ─────────────── Auth (demo local) ───────────────
+  function openLogin() { setAuthError(""); setLoginOpen(true); }
+  function closeLogin() { setLoginOpen(false); }
+
+  function login(email, password, selectedRole) {
+    setAuthError("");
+    const found = users.find(
+      (u) => u.email === email && u.password === password && u.roles.includes(selectedRole)
+    );
+    if (!found) {
+      setAuthError("Correo, contraseña o rol incorrecto");
+      return false;
+    }
+    setUser({ id: found.id, name: found.name, email: found.email, roles: found.roles, activeRole: selectedRole });
+    setActiveView("dashboard");
+    setLoginOpen(false);
+    return true;
+  }
+
+  function logout() {
+    setUser(null);
+    setActiveView("home");
+    setSelectedId(null);
+  }
+
+  // ─────────────── KYC (simulado / local) ───────────────
+  const kycVerified = user ? Boolean(kycMap[user.id]) : false;
+
+  function openKycModal() { setKycModalOpen(true); }
+  function closeKycModal() { setKycModalOpen(false); }
+
+  function approveKyc() {
+    if (user) setKycMap((prev) => ({ ...prev, [user.id]: true }));
+    setKycModalOpen(false);
+  }
+
+  // Lanza la creación solo si el negociador pasó el KYC; si no, abre el modal.
+  function startCreateProject() {
+    if (!kycVerified) {
+      setKycModalOpen(true);
+      return;
+    }
+    setActiveView("create");
+  }
+
+  // ─────────────── Wallet ───────────────
+  async function connectWallet() {
+    setWalletLoading(true);
+    try {
+      const wallet = await connectMetaMask();
+      setAccount(wallet);
+    } catch (error) {
+      alert("❌ No se pudo conectar la wallet: " + error.message);
+    } finally {
+      setWalletLoading(false);
+    }
+  }
+
+  function disconnectWallet() {
+    setAccount("");
+    setUsdcBalance(0);
+  }
+
+  async function requestFaucet(amount = 5000) {
+    if (!account) return alert("Conecta tu wallet primero");
+    setTxPending(true);
+    try {
+      await mintUsdc(amount);
+      await refreshBalance(account);
+      alert(`✅ Recibiste ${amount} USDC de prueba`);
+    } catch (error) {
+      alert("❌ Faucet falló: " + (error.shortMessage || error.message));
+    } finally {
+      setTxPending(false);
+    }
+  }
+
+  // ─────────────── Acciones on-chain ───────────────
+  async function runTx(fn, successMsg) {
+    if (!account) {
+      alert("Conecta tu wallet primero");
+      return false;
+    }
+    setTxPending(true);
+    try {
+      await fn();
+      await loadProjects();
+      if (account) await refreshBalance(account);
+      if (successMsg) alert(successMsg);
+      return true;
+    } catch (error) {
+      console.error(error);
+      alert("❌ Error: " + (error.shortMessage || error.reason || error.message));
+      return false;
+    } finally {
+      setTxPending(false);
+    }
+  }
+
+  async function createProject({ name, goal, description, durationDays, imageUrl }) {
+    if (!account) {
+      alert("Conecta tu wallet primero");
+      return;
+    }
+    if (!kycVerified) {
+      setKycModalOpen(true);
+      return;
+    }
+    setTxPending(true);
+    try {
+      const interestBps = calculateInterestBps(goal);
+      // Duración elegida por el negociador (entre 1 semana y 6 meses).
+      const days = Math.min(Math.max(Number(durationDays) || 30, 7), 180);
+      // Cuotas: semanales para plazos cortos, mensuales para plazos largos.
+      const repaymentInterval = days <= 30 ? 7 * 24 * 3600 : 30 * 24 * 3600;
+
+      const result = await createProjectOnChain(
+        goal,
+        interestBps,
+        days,
+        repaymentInterval,
+        `ipfs://${name}`
+      );
+
+      // Guardar metadata en el backend (tolerante a fallos).
+      try {
+        await fetch(`${BACKEND_URL}/api/proyectos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: name,
+            descripcion: description,
+            montoObjetivo: Number(goal),
+            montoActual: 0,
+            interes: interestBps / 100,
+            duracionMeses: Math.max(1, Math.round(days / 30)),
+            garantia: Number(goal) * 0.05,
+            imagenURL: imageUrl || null,
+            contractAddress: result.projectAddress,
+            estado: "Funding",
+            emprendedorId: user?.id ?? 1,
+          }),
+        });
+      } catch {
+        /* backend opcional */
+      }
+
+      await loadProjects();
+      await refreshBalance(account);
+      setActiveView("dashboard");
+      alert("✅ Proyecto creado on-chain y garantía depositada");
+    } catch (error) {
+      console.error(error);
+      alert("❌ Error: " + (error.shortMessage || error.reason || error.message));
+    } finally {
+      setTxPending(false);
+    }
+  }
+
+  const invest = (contractAddress, amount) => {
+    const value = Number(amount);
+    if (!value || value <= 0) return alert("Ingrese un monto válido");
+    return runTx(() => investOnChain(contractAddress, value), "✅ Inversión realizada");
+  };
+
+  const vote = (contractAddress, milestoneId, support) =>
+    runTx(() => voteOnChain(contractAddress, milestoneId, support),
+      support ? "✅ Voto a favor registrado" : "✅ Voto en contra registrado");
+
+  const finalizeFunding = (contractAddress) =>
+    runTx(() => finalizeFundingOnChain(contractAddress), "✅ Funding finalizado, proyecto activo");
+
+  const requestMilestone = (contractAddress, evidenceURI) =>
+    runTx(() => requestMilestoneReleaseOnChain(contractAddress, evidenceURI), "✅ Votación de milestone iniciada");
+
+  const finalizeVoting = (contractAddress, milestoneId) =>
+    runTx(() => finalizeVotingOnChain(contractAddress, milestoneId), "✅ Votación finalizada");
+
+  const makeRepayment = (contractAddress, index) =>
+    runTx(() => makeRepaymentOnChain(contractAddress, index), "✅ Cuota pagada");
+
+  const claimRewards = (contractAddress) =>
+    runTx(() => claimRewardsOnChain(contractAddress), "✅ Recompensas reclamadas");
+
+  const claimRefund = (contractAddress) =>
+    runTx(() => claimRefundOnChain(contractAddress), "✅ Reembolso reclamado");
+
+  // ─────────────── Navegación de proyectos ───────────────
+  function openProject(project) {
+    setSelectedId(project.contractAddress);
+    setActiveView("detail");
+  }
+
+  // El proyecto seleccionado se deriva de la lista (siempre fresco).
+  const selectedProject = projects.find((p) => p.contractAddress === selectedId) || null;
+
+  // Filtrado por rol.
+  const isCreator = user?.activeRole === "creator";
+  const visibleProjects = isCreator
+    ? projects.filter((p) => account && p.creator?.toLowerCase() === account.toLowerCase())
+    : projects;
+
+  return (
+    <AppContext.Provider
+      value={{
+        account,
+        usdcBalance,
+        walletLoading,
+        txPending,
+        user,
+        authError,
+        loginOpen,
+        activeView,
+        projects,
+        projectsLoading,
+        visibleProjects,
+        selectedProject,
+        kycVerified,
+        kycModalOpen,
+        setActiveView,
+        openLogin,
+        closeLogin,
+        login,
+        logout,
+        openKycModal,
+        closeKycModal,
+        approveKyc,
+        startCreateProject,
+        connectWallet,
+        disconnectWallet,
+        requestFaucet,
+        loadProjects,
+        createProject,
+        invest,
+        vote,
+        finalizeFunding,
+        requestMilestone,
+        finalizeVoting,
+        makeRepayment,
+        claimRewards,
+        claimRefund,
+        openProject,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useApp() {
+  return useContext(AppContext);
+}
+
+
+========================================
+FILE: ./frontend/src/hooks/useFactory.js
+========================================
+import { useApp } from "../context/AppContext";
+
+export function useFactory() {
+  const { visibleProjects, createProject, projectsLoading, loadProjects } = useApp();
+
+  return {
+    projects: visibleProjects,
+    createProject,
+    projectsLoading,
+    loadProjects,
+  };
+}
+
+
+========================================
+FILE: ./frontend/src/hooks/useProject.js
+========================================
+import { useApp } from "../context/AppContext";
+
+export function useProject() {
+  const {
+    selectedProject,
+    invest,
+    vote,
+    finalizeFunding,
+    requestMilestone,
+    finalizeVoting,
+    makeRepayment,
+    claimRewards,
+    claimRefund,
+  } = useApp();
+
+  return {
+    project: selectedProject,
+    invest,
+    vote,
+    finalizeFunding,
+    requestMilestone,
+    finalizeVoting,
+    makeRepayment,
+    claimRewards,
+    claimRefund,
+  };
+}
+=== FIN DEL VOLCADO ===

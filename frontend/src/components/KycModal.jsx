@@ -1,100 +1,142 @@
 import { useState } from "react";
-import { ShieldCheck, Upload, X, CheckCircle2 } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { X, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
 import Button from "./ui/Button";
-import Card from "./ui/Card";
 
 export default function KycModal() {
-  const { kycModalOpen, closeKycModal, approveKyc, setActiveView, user } = useApp();
-
-  const [fullName, setFullName] = useState("");
-  const [docId, setDocId] = useState("");
-  const [preview, setPreview] = useState(null);
+  const { kycModalOpen, closeKycModal, verifyKyc } = useApp();
+  
+  const [documento, setDocumento] = useState("");
+  const [pais, setPais] = useState("");
   const [fileName, setFileName] = useState("");
+  const [preview, setPreview] = useState(null);
   const [accepted, setAccepted] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
   if (!kycModalOpen) return null;
 
-  function handleFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    // Solo lectura local para previsualizar; no se sube a ningún servidor.
-    const reader = new FileReader();
-    reader.onload = (ev) => setPreview(ev.target.result);
-    reader.readAsDataURL(file);
-  }
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFileName(file.name);
+      setPreview(URL.createObjectURL(file));
+    }
+  };
 
-  const canSubmit = fullName.trim() && docId.trim() && preview && accepted && !verifying;
-
-  function handleApprove() {
-    if (!canSubmit) return;
+  const handleApprove = async () => {
+    if (!documento || !pais || !accepted) return;
+    
     setVerifying(true);
-    // Simulación: pequeño retardo para imitar un proceso de verificación.
-    setTimeout(() => {
-      approveKyc();
-      setVerifying(false);
-      setActiveView("create");
-    }, 900);
-  }
+    
+    // Simulamos un delay de red/análisis de la IA de GreenFix antes de guardar
+    setTimeout(async () => {
+      try {
+        await verifyKyc();
+        closeKycModal();
+        // Reset local
+        setDocumento("");
+        setPais("");
+        setFileName("");
+        setPreview(null);
+        setAccepted(false);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setVerifying(false);
+      }
+    }, 1500);
+  };
+
+  const canSubmit = documento && pais && accepted && !verifying;
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 px-4 backdrop-blur">
-      <Card className="w-full max-w-2xl p-6" hoverEffect={false}>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <ShieldCheck />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">Verificación KYC</h2>
-              <p className="text-sm text-text-secondary">
-                Simulación local. {user?.name ? `Hola, ${user.name}. ` : ""}Verifícate para poder crear proyectos.
-              </p>
-            </div>
-          </div>
-          <button onClick={closeKycModal} className="rounded-full p-2 text-text-secondary hover:bg-white/10 hover:text-white">
-            <X />
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-[#0d0f12] p-8 shadow-2xl">
+        
+        {/* Botón Cerrar */}
+        <button
+          onClick={closeKycModal}
+          disabled={verifying}
+          className="absolute top-4 right-4 rounded-xl p-2 text-text-muted hover:bg-white/5 hover:text-white transition-colors disabled:opacity-30"
+        >
+          <X size={18} />
+        </button>
+
+        {/* Encabezado */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+            <AlertTriangle className="text-primary" size={24} />
+            Verificación de Identidad (KYC)
+          </h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            Como medida de seguridad del protocolo y cumplimiento legal, requerimos validar tu identidad antes de permitirte publicar proyectos en la blockchain.
+          </p>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="label-field">Nombre completo</label>
-            <input className="input-field" placeholder="Como aparece en tu documento" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+        {/* Inputs en Grid */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block mb-1">Número de Documento / Pasaporte</label>
+              <input
+                type="text"
+                value={documento}
+                onChange={(e) => setDocumento(e.target.value)}
+                placeholder="Ej. V-12345678 o Pasaporte"
+                className="input-field w-full"
+                disabled={verifying}
+              />
+            </div>
 
-            <label className="label-field mt-4">Número de documento</label>
-            <input className="input-field" placeholder="Ej: 1234567 SC" value={docId} onChange={(e) => setDocId(e.target.value)} />
+            <div>
+              <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block mb-1">País de Residencia</label>
+              <input
+                type="text"
+                value={pais}
+                onChange={(e) => setPais(e.target.value)}
+                placeholder="Ej. Venezuela"
+                className="input-field w-full"
+                disabled={verifying}
+              />
+            </div>
           </div>
 
+          {/* Zona de Arrastre de Archivo / Imagen */}
           <div>
-            <label className="label-field">Foto del documento / ID</label>
-            <label className="mt-1 flex h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/20 bg-white/[0.03] text-text-secondary hover:border-primary/40">
+            <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block mb-1">Foto del documento / ID</label>
+            <label className={`mt-1 flex h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed bg-white/[0.03] text-text-secondary transition-all hover:bg-white/[0.05] ${preview ? 'border-primary/40' : 'border-white/20'}`}>
               {preview ? (
                 <img src={preview} alt="Documento" className="h-full w-full rounded-2xl object-cover" />
               ) : (
                 <>
-                  <Upload />
-                  <span className="text-sm">Subir imagen</span>
+                  <Upload size={24} className="text-text-muted" />
+                  <span className="text-sm font-medium">Subir imagen ID</span>
                 </>
               )}
-              <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
+              <input type="file" accept="image/*" className="hidden" onChange={handleFile} disabled={verifying} />
             </label>
-            {fileName && <p className="mt-2 truncate text-xs text-text-muted">{fileName}</p>}
+            {fileName && <p className="mt-2 truncate text-xs text-text-muted px-1">{fileName}</p>}
           </div>
         </div>
 
-        <label className="mt-5 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-text-secondary">
-          <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-1" />
-          Declaro que la información es verídica (simulación para el demo; no se envían datos a ningún servidor).
+        {/* Disclaimer / Checkbox */}
+        <label className="mt-6 flex items-start gap-3 rounded-2xl border border-white/5 bg-white/[0.01] p-4 text-xs text-text-secondary select-none cursor-pointer hover:border-white/10 transition-colors">
+          <input
+            type="checkbox"
+            checked={accepted}
+            onChange={(e) => setAccepted(e.target.checked)}
+            className="mt-0.5 rounded border-white/20 bg-transparent text-primary focus:ring-0"
+            disabled={verifying}
+          />
+          <span>Declaro que la información proveída es fidedigna y autorizo la auditoría de mi rol de Negociador (Simulación Demo para entorno de pruebas).</span>
         </label>
 
-        <Button onClick={handleApprove} className="mt-5 w-full" disabled={!canSubmit}>
+        {/* Acción Aprobación */}
+        <Button onClick={handleApprove} className="mt-6 w-full gap-2" disabled={!canSubmit}>
           <CheckCircle2 size={18} />
-          {verifying ? "Verificando..." : "Aprobar verificación"}
+          {verifying ? "Verificando Identidad..." : "Enviar y Aprobar KYC"}
         </Button>
-      </Card>
+      </div>
     </div>
   );
 }
