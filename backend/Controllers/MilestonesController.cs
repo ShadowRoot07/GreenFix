@@ -42,15 +42,35 @@ public class MilestonesController : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { id = milestone.MilestoneID }, milestone);
     }
 
+    /// <summary>
+    /// Actualiza el estado y evidencias de un hito en sincronía con las votaciones del Smart Contract.
+    /// </summary>
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] Milestone datos)
     {
         var milestone = await _context.Milestones.FindAsync(id);
-        if (milestone == null) return NotFound();
+        if (milestone == null) 
+            return NotFound(new { mensaje = $"Hito con ID {id} no encontrado" });
 
         milestone.Liberado = datos.Liberado;
-        if (!string.IsNullOrWhiteSpace(datos.Estado)) milestone.Estado = datos.Estado;
-        if (!string.IsNullOrWhiteSpace(datos.EvidenciaURL)) milestone.EvidenciaURL = datos.EvidenciaURL;
+        
+        if (!string.IsNullOrWhiteSpace(datos.Estado)) 
+            milestone.Estado = datos.Estado;
+
+        if (!string.IsNullOrWhiteSpace(datos.EvidenciaURL)) 
+            milestone.EvidenciaURL = datos.EvidenciaURL;
+
+        // Lógica de negocio automatizada para ventanas de votación en base de datos
+        if (datos.Estado == "Voting" && milestone.FechaInicioVotacion == null)
+        {
+            milestone.FechaInicioVotacion = DateTime.UtcNow;
+            milestone.FechaFinVotacion = DateTime.UtcNow.AddDays(7); // Simulación de ventana de 7 días
+        }
+
+        if (datos.Estado == "Approved" || datos.Estado == "Released")
+        {
+            milestone.Liberado = true;
+        }
 
         await _context.SaveChangesAsync();
         return Ok(milestone);

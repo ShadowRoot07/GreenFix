@@ -13,5 +13,5 @@ public class Milestone
     public string? EvidenciaURL { get; set; }
     public DateTime? FechaInicioVotacion { get; set; }
     public DateTime? FechaFinVotacion { get; set; }
-    public string Estado { get; set; } = "Pendiente";
+    public string Estado { get; set; } = "Pending"; // Estandarizado a "Pending"
 }
