@@ -45,14 +45,31 @@ public class GreenFixDbContext : DbContext
             entity.Property(e => e.Descripcion).HasColumnName("Descripcion");
             entity.Property(e => e.MontoObjetivo).HasColumnType("decimal(18,2)");
             entity.Property(e => e.MontoActual).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Interes).HasColumnType("decimal(5,2)");        // ← NUEVO
-            entity.Property(e => e.DuracionMeses).IsRequired();               // ← NUEVO
-            entity.Property(e => e.Garantia).HasColumnType("decimal(18,2)");      // ← NUEVO
-            entity.Property(e => e.ImagenURL).HasColumnName("ImagenURL").HasMaxLength(500); // ← imagen personalizada
-            entity.Property(e => e.ContractAddress).HasMaxLength(42);         // ← AGREGAR config
+            entity.Property(e => e.Interes).HasColumnType("decimal(5,2)");        
+            entity.Property(e => e.DuracionMeses).IsRequired();               
+            entity.Property(e => e.Garantia).HasColumnType("decimal(18,2)");      
+            entity.Property(e => e.ImagenURL).HasColumnName("ImagenURL").HasMaxLength(500); 
+            entity.Property(e => e.ContractAddress).HasMaxLength(42);         
             entity.Property(e => e.Estado).HasMaxLength(30).HasDefaultValue("Funding");
             entity.Property(e => e.FechaCreacion).HasDefaultValueSql("GETDATE()");
-            // FK
+    
+            // Configuración explícita de relaciones para habilitar carga con .Include()
+            entity.HasMany(p => p.Milestones)
+                  .WithOne()
+                  .HasForeignKey("ProyectoID")
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(p => p.Pagos)
+                  .WithOne()
+                  .HasForeignKey("ProyectoID")
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(p => p.Inversiones)
+                  .WithOne()
+                  .HasForeignKey("ProyectoID")
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // FK original
             entity.HasOne<Usuario>().WithMany().HasForeignKey("UsuarioID").HasPrincipalKey(u => u.UsuarioID).OnDelete(DeleteBehavior.Cascade);
         });
 
